@@ -27,7 +27,11 @@ for bundle, executable, identifier, package in [
     (path / 'Info.plist').write_bytes(plistlib.dumps(info))
     resources = path / 'Resources'
     resources.mkdir(exist_ok=True)
-    for name in ['README.md', 'LICENSE']:
+    for name in ['README.md', 'README.zh-CN.md', 'LICENSE']:
         (resources / name).write_bytes(pathlib.Path(name).read_bytes())
 
     (resources / 'Countdown.icns').write_bytes(pathlib.Path('Assets/Countdown.icns').read_bytes())
+    screenshots = resources / 'Assets/Screenshots'
+    screenshots.mkdir(parents=True, exist_ok=True)
+    for name in ['countdown-en.png', 'countdown-zh.png']:
+        (screenshots / name).write_bytes((pathlib.Path('Assets/Screenshots') / name).read_bytes())

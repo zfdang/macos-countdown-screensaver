@@ -11,15 +11,23 @@ import AppKit
   }
 }
 
+@MainActor private final class SettingsDocumentView: NSView {
+  override var isFlipped: Bool { true }
+}
+
 @MainActor
 public final class ConfigurationWindowController: NSWindowController, NSTableViewDataSource,
-  NSTableViewDelegate, NSTextFieldDelegate
+  NSTableViewDelegate, NSTextFieldDelegate, NSWindowDelegate
 {
   public private(set) var draft: DraftConfiguration
   public private(set) var selectedID: UUID?
   public private(set) var loadError: Error?
   public var onSave: ((Configuration) -> Void)?
   public var onCancel: (() -> Void)?
+  public var onFinish: (() -> Void)?
+  private(set) var isFinished = false
+  private var settingsRoot: NSStackView?
+  private var settingsScrollView: NSScrollView?
   private let store: ConfigurationStore
   private let service = CalendarConversionService()
   private let table = NSTableView()
@@ -66,9 +74,13 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private func buildWindow() {
     if window == nil {
       window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 900, height: 760),
-        styleMask: [.titled], backing: .buffered, defer: false)
+        contentRect: NSRect(
+          origin: .zero, size: Self.initialSize(visibleFrame: NSScreen.main?.visibleFrame)),
+        styleMask: [.titled, .resizable], backing: .buffered, defer: false)
       window?.isReleasedWhenClosed = false
+      window?.contentMinSize = NSSize(width: 480, height: 320)
+      window?.contentMaxSize = NSSize(width: 900, height: 760)
+      window?.delegate = self
     }
     window?.title = l.text(.settings)
     refreshing = true
@@ -221,31 +233,65 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     saveButton.keyEquivalent = "\r"
     footer.addArrangedSubview(cancel)
     footer.addArrangedSubview(saveButton)
-    root.addArrangedSubview(footer)
     let content = (window?.contentView as? SettingsBackgroundView) ?? SettingsBackgroundView()
     content.subviews.forEach { $0.removeFromSuperview() }
     if window?.contentView !== content { window?.contentView = content }
+    // Keep actions outside the scrolling document so even short displays can save/cancel.
+    let settingsScroll = NSScrollView()
+    settingsScroll.setAccessibilityIdentifier("settingsScroll")
+    settingsScroll.hasVerticalScroller = true
+    settingsScroll.hasHorizontalScroller = true
+    settingsScroll.autohidesScrollers = true
+    settingsScroll.drawsBackground = false
+    settingsScroll.translatesAutoresizingMaskIntoConstraints = false
+    let document = SettingsDocumentView(frame: NSRect(x: 0, y: 0, width: 900, height: 760))
     root.translatesAutoresizingMaskIntoConstraints = false
-    content.addSubview(root)
+    document.addSubview(root)
+    settingsScroll.documentView = document
+    settingsRoot = root
+    settingsScrollView = settingsScroll
+    footer.translatesAutoresizingMaskIntoConstraints = false
+    content.addSubview(settingsScroll)
+    content.addSubview(footer)
     NSLayoutConstraint.activate([
-      root.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-      root.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-      root.topAnchor.constraint(equalTo: content.topAnchor),
-      root.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor),
+      settingsScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+      settingsScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+      settingsScroll.topAnchor.constraint(equalTo: content.topAnchor),
+      settingsScroll.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -12),
+      root.leadingAnchor.constraint(equalTo: document.leadingAnchor),
+      root.trailingAnchor.constraint(equalTo: document.trailingAnchor),
+      root.topAnchor.constraint(equalTo: document.topAnchor),
       preferencesCard.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
-      footer.widthAnchor.constraint(equalTo: preferencesCard.widthAnchor),
+      footer.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
+      footer.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
+      footer.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
+      footer.heightAnchor.constraint(equalToConstant: 32),
     ])
     NSAccessibility.post(element: content, notification: .layoutChanged)
     refreshing = false
     populateEditor()
     reloadTable()
     updatePreview()
+    layoutSettingsContent()
     window?.layoutIfNeeded()
     window?.display()
     previewTimer?.invalidate()
     previewTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       MainActor.assumeIsolated { self?.updatePreview() }
     }
+  }
+  static func initialSize(visibleFrame: NSRect?) -> NSSize {
+    guard let frame = visibleFrame else { return NSSize(width: 900, height: 760) }
+    // Leave space for the host title bar, menu bar, and sheet attachment.
+    return NSSize(
+      width: min(900, max(480, frame.width - 48)),
+      height: min(760, max(320, frame.height - 120)))
+  }
+  private func layoutSettingsContent() {
+    guard let root = settingsRoot, let document = settingsScrollView?.documentView else { return }
+    document.layoutSubtreeIfNeeded()
+    document.setFrameSize(NSSize(width: 900, height: max(1, root.fittingSize.height)))
+    document.layoutSubtreeIfNeeded()
   }
   private func vertical(spacing: CGFloat) -> NSStackView {
     let stack = NSStackView()
@@ -564,6 +610,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     equivalentLabel.isHidden = event?.input.calendar != .chinese
     saveButton.isEnabled = error == nil
     equivalentLabel.stringValue = event.map { l.text(.equivalent, l.gregorianDate($0)) } ?? ""
+    layoutSettingsContent()
   }
   private func validationError() -> Error? {
     do {
@@ -605,13 +652,21 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     onCancel?()
     finish()
   }
-  private func finish() {
+  public func windowWillClose(_ notification: Notification) { complete() }
+  private func complete() {
+    guard !isFinished else { return }
+    isFinished = true
     previewTimer?.invalidate()
     previewTimer = nil
+    onFinish?()
+  }
+  private func finish() {
     if let window, let parent = window.sheetParent {
       parent.endSheet(window)
+      window.orderOut(nil)
     } else {
       window?.close()
     }
+    complete()
   }
 }

@@ -14,7 +14,7 @@ let package = Package(
     .target(name: "CountdownUI", dependencies: ["CountdownCore"]),
     .executableTarget(name: "CountdownPreview", dependencies: ["CountdownUI", "CountdownCore"]),
     .testTarget(
-      name: "CountdownCoreTests", dependencies: ["CountdownCore"], resources: [.copy("Fixtures")]),
+      name: "CountdownCoreTests", dependencies: ["CountdownCore"]),
     .testTarget(name: "CountdownUITests", dependencies: ["CountdownUI", "CountdownCore"]),
   ]
 )

@@ -134,3 +134,15 @@ public struct FooterLayout: Equatable {
     nextY = showNext ? cursor : nil
   }
 }
+
+/// Reserve a visible gap before larger unit labels, including the second compact row.
+public struct DigitRowLayout: Equatable {
+  public let digitHeight: Double, unitOffset: Double, unitSize: Double, unitHeight: Double
+  public init(rowHeight: Double, screenWidth: Double, screenHeight: Double, compact: Bool) {
+    let h = max(1, rowHeight)
+    digitHeight = h * (compact ? 0.68 : 0.76)
+    unitSize = max(8, min(32, screenWidth / 38, screenHeight / 14, compact ? h * 0.16 : 32))
+    unitHeight = unitSize * 1.4
+    unitOffset = digitHeight + max(2, min(18, h * 0.08))
+  }
+}

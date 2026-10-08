@@ -280,6 +280,117 @@ final class InterfaceTests: XCTestCase {
       view.cacheDisplay(in: view.bounds, to: bitmap)
     }
   }
+  func testConfigureSheetReusesDraftAndReleasesOnCancelAndSave() async throws {
+    try await MainActor.run {
+      _ = NSApplication.shared
+      let backend = TestBackend()
+      let saver = try XCTUnwrap(
+        CountdownScreenSaverView(
+          frame: .zero, isPreview: true,
+          store: ConfigurationStore(backend: backend)))
+      let first = try XCTUnwrap(saver.configureSheet)
+      do {
+        let controller = try XCTUnwrap(first.windowController as? ConfigurationWindowController)
+        controller.addEvent()
+        XCTAssertTrue(saver.configureSheet === first)
+        XCTAssertEqual(controller.draft.value.events.count, 1)
+        controller.cancelPressed()
+        XCTAssertTrue(controller.isFinished)
+      }
+      XCTAssertNil(backend.data)
+      let second = try XCTUnwrap(saver.configureSheet)
+      XCTAssertFalse(first === second)
+      XCTAssertTrue(saver.configureSheet === second)
+      let controller = try XCTUnwrap(second.windowController as? ConfigurationWindowController)
+      XCTAssertTrue(controller.draft.value.events.isEmpty)
+      controller.addEvent()
+      let saved = try controller.saveDraft()
+      XCTAssertTrue(controller.isFinished)
+      XCTAssertEqual(saver.content.configuration, saved)
+      let third = try XCTUnwrap(saver.configureSheet)
+      XCTAssertFalse(second === third)
+      let reopened = try XCTUnwrap(third.windowController as? ConfigurationWindowController)
+      XCTAssertEqual(reopened.draft.value, saved)
+      reopened.cancelPressed()
+    }
+  }
+  func testExternalWindowCloseFinishesOnceAndClearsSheetCache() async throws {
+    try await MainActor.run {
+      let saver = try XCTUnwrap(
+        CountdownScreenSaverView(
+          frame: .zero, isPreview: true,
+          store: ConfigurationStore(backend: TestBackend())))
+      let old = try XCTUnwrap(saver.configureSheet)
+      let controller = try XCTUnwrap(old.windowController as? ConfigurationWindowController)
+      old.close()
+      XCTAssertTrue(controller.isFinished)
+      XCTAssertFalse(saver.configureSheet === old)
+      let standalone = self.controller()
+      var finishes = 0
+      standalone.onFinish = { finishes += 1 }
+      standalone.cancelPressed()
+      standalone.cancelPressed()
+      XCTAssertEqual(finishes, 1)
+    }
+  }
+  func testSmallResizableSettingsKeepActionsVisibleWhileContentScrolls() async throws {
+    try await MainActor.run {
+      let c = controller()
+      c.addEvent()
+      let window = try XCTUnwrap(c.window)
+      XCTAssertTrue(window.styleMask.contains(.resizable))
+      let initial = ConfigurationWindowController.initialSize(
+        visibleFrame: NSRect(x: 0, y: 0, width: 1366, height: 700))
+      XCTAssertLessThan(initial.height, 700)
+      XCTAssertEqual(
+        ConfigurationWindowController.initialSize(visibleFrame: nil),
+        NSSize(width: 900, height: 760))
+      for language in [1, 2] {
+        let popup: NSPopUpButton = find("language", in: window.contentView!)
+        select(popup, language)
+        window.setContentSize(NSSize(width: 480, height: 360))
+        window.layoutIfNeeded()
+        let content = window.contentView!
+        content.layoutSubtreeIfNeeded()
+        let scroll: NSScrollView = find("settingsScroll", in: content)
+        let document = try XCTUnwrap(scroll.documentView)
+        XCTAssertGreaterThan(document.frame.height, scroll.contentView.bounds.height)
+        XCTAssertGreaterThan(document.frame.width, scroll.contentView.bounds.width)
+        scroll.contentView.scroll(to: NSPoint(x: 300, y: 300))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, 0)
+        for id in ["save", "cancel"] {
+          let button: NSButton = find(id, in: content)
+          let rect = button.convert(button.bounds, to: content)
+          XCTAssertTrue(content.bounds.contains(rect), "\(id) must remain visible")
+          XCTAssertLessThanOrEqual(rect.maxY, scroll.frame.minY)
+          XCTAssertTrue(button.isEnabled)
+        }
+      }
+      c.cancelPressed()
+    }
+  }
+  func testPreviewCloseStopsTimerBeforeAppTermination() async throws {
+    try await MainActor.run {
+      let delegate = PreviewApplicationDelegate(store: ConfigurationStore(backend: TestBackend()))
+      delegate.applicationDidFinishLaunching(
+        Notification(name: NSApplication.didFinishLaunchingNotification))
+      let window = try XCTUnwrap(delegate.window)
+      let timer = try XCTUnwrap(delegate.timer)
+      XCTAssertFalse(window.isReleasedWhenClosed)
+      XCTAssertTrue(timer.isValid)
+      XCTAssertTrue(delegate.saver.isAnimating)
+      timer.fire()
+      window.performClose(nil)
+      XCTAssertFalse(window.isVisible)
+      XCTAssertNil(delegate.timer)
+      XCTAssertFalse(timer.isValid)
+      XCTAssertFalse(delegate.saver.isAnimating)
+      timer.fire()
+      delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+      XCTAssertNil(delegate.timer)
+    }
+  }
   func testIndependentScreenSaverInstancesRestartAndConfigure() async throws {
     try await MainActor.run {
       _ = NSApplication.shared
