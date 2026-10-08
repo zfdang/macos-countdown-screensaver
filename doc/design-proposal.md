@@ -4,13 +4,11 @@ Version: v1.2 implementation baseline
 
 Date: 2026-10-08
 
-Reference project: `/Users/zfdang/workspaces/Countdown`
-
 Scope: Product behavior, UI, date rules, architecture, and acceptance criteria. See build-and-release.md and acceptance-report.md for implementation and verification details.
 
 ## 1. Product Overview
 
-Build a native macOS `.saver` that retains the reference application's black background, thin large digits, and four countdown columns. Users configure up to five events, each with a Gregorian or Chinese lunar date and an exact time down to seconds.
+Build a native macOS `.saver` with a black background, thin large digits, and four countdown columns. Users configure up to five events, each with a Gregorian or Chinese lunar date and an exact time down to seconds.
 
 Resolve all events to absolute timestamps and sort them chronologically. Display the nearest future event and advance automatically when it expires. Ordering means the order of event timestamps, rather than entry order or a rotating slideshow.
 
@@ -28,13 +26,11 @@ Resolve all events to absolute timestamps and sort them chronologically. Display
 
 Lunar support means the Chinese lunar calendar. Annual repetition, automatic birthday renewal, and holiday generation are future features requiring separate recurrence rules.
 
-Project design documents are written in English. The README is bilingual, with equivalent English and Chinese sections. The application provides separate English and Chinese interfaces rather than showing both languages together.
+Project design documents are written in English. The README defaults to English and links to a separate Chinese README; both show localized screen saver screenshots. The application provides separate English and Chinese interfaces rather than showing both languages together.
 
-## 2. Reference Application Review
+## 2. Visual and Runtime Principles
 
-Reviewed the reference README, `CountdownView.swift`, `PlaceView.swift`, `Preferences.swift`, the configuration controller and XIB, and `countdown.gif`.
-
-### 2.1 Design to Retain
+### 2.1 Visual Design
 
 - Black background, white countdown digits, and subdued unit labels.
 - Four centered columns: days, hours, minutes, and seconds.
@@ -42,17 +38,13 @@ Reviewed the reference README, `CountdownView.swift`, `PlaceView.swift`, `Prefer
 - Configuration through the native screen saver options sheet.
 - A standalone preview application for development and visual verification.
 
-### 2.2 Required Changes
+### 2.2 Runtime Behavior
 
-The reference stores one timestamp and displays elapsed time for past dates using absolute component values. The new version needs an event list, lunar input, automatic advancement, and a completion state.
-
-- Replace `Calendar.current` component differences with absolute elapsed seconds. Define a countdown day as exactly 24 hours to avoid DST ambiguity.
-- Replace approximately 30 updates per second for static digits with once-per-second updates and redraw only when needed.
+- Use absolute elapsed seconds rather than calendar component differences. Define a countdown day as exactly 24 hours to avoid DST ambiguity.
+- Update countdowns once per second and redraw only when needed.
 - Support configuration changes across processes; process-local notifications alone are insufficient.
-- Do not copy the reference's `exit(0)` stop handling into the system host. Manage view lifecycle correctly and verify compatibility in the actual host.
+- Manage view lifecycle without terminating the system host, and verify compatibility in the actual host.
 - Reset stopped state and reload configuration on every start.
-
-Retain existing MIT copyright and license notices if reference code is reused.
 
 ## 3. Screen Design
 
@@ -390,6 +382,6 @@ Deliver source code, an installable `.saver`, a development preview application,
 
 ## 10. Future Extensions
 
-Consider annual recurrence, lunar birthday policies, additional themes, import/export, and migration from the old Countdown preferences after the first version is stable. Automatic migration requires explicit user intent and identification of the actual old preference domain; the first version does not read or modify old application settings by default.
+Consider annual recurrence, lunar birthday policies, additional themes, and import/export after the first version is stable.
 
 Before adding recurrence, define regular/leap-month selection, years missing the selected leap month, missing lunar day 30, and Gregorian February 29 behavior.

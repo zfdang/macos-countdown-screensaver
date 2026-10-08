@@ -2,7 +2,7 @@
 
 # macOS 倒计时屏幕保护程序
 
-一款原生 macOS 屏幕保护程序，显示最多五个目标时间的倒计时，界面参考 [Countdown](https://github.com/zfdang/Countdown) 的黑底简洁风格。
+一款采用简洁黑底界面的原生 macOS 屏幕保护程序，显示最多五个目标时间的倒计时。
 
 ![中文倒计时屏幕保护程序](Assets/Screenshots/countdown-zh.png)
 
@@ -24,9 +24,7 @@
 
 当前构建使用临时代码签名，尚未经过 Apple 公证，macOS 可能要求在“隐私与安全性”中批准。编译最低目标系统为 macOS 13；本地宿主验收在 macOS 15.8 上完成，具体验证范围见验收报告。
 
-如果已经安装旧版 Countdown，请在替换前保留副本。新版使用独立配置域，不迁移或修改旧版目标。试用时可以重命名新版 bundle，在磁盘上区分两个版本。
-
-预览 ZIP 中提供 `Countdown Preview.app`，无需启动系统屏保即可查看相同界面并设置目标；它与新版屏保共享配置。
+预览 ZIP 中提供 `Countdown Preview.app`，无需启动系统屏保即可查看相同界面并设置目标；它与屏保共享配置。
 
 ## 构建与测试
 
@@ -51,4 +49,4 @@ GitHub Actions 会为每个 PR 测试两个架构。合并或推送到 `main` �
 - [构建与发布流程](doc/build-and-release.md)
 - [本地验收报告](doc/acceptance-report.md)
 
-设计和技术文档统一使用英文；README 提供独立的英文和中文版本。每年重复事件和旧版配置迁移不属于当前版本。
+设计和技术文档统一使用英文；README 提供独立的英文和中文版本。每年重复事件不属于当前版本。

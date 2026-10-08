@@ -2,7 +2,7 @@
 
 # macOS Countdown Screen Saver
 
-A native macOS screen saver for up to five chronological events, inspired by the minimal black-background design of [Countdown](https://github.com/zfdang/Countdown).
+A native macOS screen saver with a minimal black-background design, displaying countdowns for up to five chronological events.
 
 ![Countdown screen saver in English](Assets/Screenshots/countdown-en.png)
 
@@ -24,9 +24,7 @@ Download the saver ZIP for **arm64 (Apple Silicon)** or **x86_64 (Intel)** from 
 
 Current builds use ad-hoc signatures and are not Apple-notarized. macOS may require approval in Privacy & Security. The deployment target is macOS 13; local host acceptance was performed on macOS 15.8. See the acceptance report for the exact verification scope.
 
-If an older Countdown saver is installed, preserve a copy before replacing it. The new version uses a separate preferences domain and does not migrate or modify the old saver’s target. During evaluation, you can rename the new bundle to distinguish it on disk.
-
-The preview ZIP contains `Countdown Preview.app`, which provides the same rendering and settings without starting a system screen saver. It shares settings with the new saver.
+The preview ZIP contains `Countdown Preview.app`, which provides the same rendering and settings without starting a system screen saver. It shares settings with the saver.
 
 ## Build and Test
 
@@ -51,4 +49,4 @@ GitHub Actions tests both architectures for each PR. After a merge/push to `main
 - [Build and release workflow](doc/build-and-release.md)
 - [Local acceptance report](doc/acceptance-report.md)
 
-Design and technical documents are in English; the README is available in English and Chinese. Annual recurring events and migration from the old application are outside this version.
+Design and technical documents are in English; the README is available in English and Chinese. Annual recurring events are outside this version.
