@@ -19,13 +19,18 @@ public enum SystemLanguages {
   public var preferredLanguages: [String] = SystemLanguages.preferred
   public private(set) var state: CountdownState = .empty
   private var engine = CountdownEngine()
-  private var lastUptime: TimeInterval = 0
+  private var movement = PositionTransition()
+  private let movementTimer = TimerLifetime()
+  private(set) var movementTimerRunning = false
+  var movementUptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+  static let movementFrameInterval: TimeInterval = 1.0 / 24
+  private var moves: Bool { configuration.appearance.moveContent && !previewMode }
   private struct RenderSnapshot: Equatable {
     let state: CountdownState
     let configuration: Configuration
     let language: UILanguage
     let preview: Bool
-    let movementStep: Int?
+    var movementFrame: PositionTransition.Frame?
     let errorMessage: String?
   }
   private var lastRenderSnapshot: RenderSnapshot?
@@ -34,34 +39,78 @@ public enum SystemLanguages {
   public func reset() {
     engine.reset()
     lastRenderSnapshot = nil
+    movement.reset()
+    stopMovementTimer()
+  }
+  public override func viewWillMove(toWindow newWindow: NSWindow?) {
+    if newWindow == nil { cancelMovementAnimation() }
+    super.viewWillMove(toWindow: newWindow)
+  }
+  private func stopMovementTimer() {
+    movementTimer.replace(with: nil)
+    movementTimerRunning = false
+  }
+  private func cancelMovementAnimation() {
+    movement.cancel()
+    stopMovementTimer()
+    needsDisplay = true
+  }
+  /// Animation frames only adjust position/opacity, leaving the countdown engine at 1 Hz.
+  @discardableResult func advanceMovement(uptime: TimeInterval) -> Bool {
+    let old = movement.frame
+    movement.update(uptime: uptime, enabled: moves)
+    if movement.isAnimating, window != nil, !movementTimerRunning {
+      movementTimerRunning = true
+      let timer = Timer(timeInterval: Self.movementFrameInterval, repeats: true) {
+        [weak self] timer in
+        MainActor.assumeIsolated {
+          guard let self else {
+            timer.invalidate()
+            return
+          }
+          self.advanceMovement(uptime: self.movementUptime())
+        }
+      }
+      movementTimer.replace(with: timer)
+      RunLoop.main.add(timer, forMode: .common)
+    } else if !movement.isAnimating {
+      stopMovementTimer()
+    }
+    guard old.opacity != movement.frame.opacity || (moves && old.step != movement.frame.step)
+    else { return false }
+    lastRenderSnapshot?.movementFrame = moves ? movement.frame : nil
+    needsDisplay = true
+    return true
   }
   @discardableResult public func update(
     now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime
   ) -> Bool {
     state = engine.tick(configuration: configuration, now: now, uptime: uptime)
-    lastUptime = uptime
+    let movementChanged = advanceMovement(uptime: uptime)
     let l = Localization(
       preference: configuration.languagePreference, preferredLanguages: preferredLanguages)
     let snapshot = RenderSnapshot(
       state: state, configuration: configuration, language: l.language, preview: previewMode,
-      movementStep: configuration.appearance.moveContent && !previewMode ? Int(uptime / 60) : nil,
+      movementFrame: moves ? movement.frame : nil,
       errorMessage: configurationError.map { l.error($0) })
     if snapshot != lastRenderSnapshot {
       needsDisplay = true
       lastRenderSnapshot = snapshot
       return true
     }
-    return false
+    return movementChanged
   }
   public override func draw(_ dirtyRect: NSRect) {
     NSColor.black.setFill()
     bounds.fill()
-    let movement = ContentLayout(
+    guard movement.frame.opacity > 0 else { return }
+    let offset = ContentLayout(
       width: bounds.width, height: bounds.height, dayDigits: 2,
-      move: configuration.appearance.moveContent, preview: previewMode, uptime: lastUptime)
+      move: configuration.appearance.moveContent, preview: previewMode,
+      uptime: movement.frame.layoutUptime)
     let context = NSGraphicsContext.current?.cgContext
     context?.saveGState()
-    context?.translateBy(x: movement.offsetX, y: movement.offsetY)
+    context?.translateBy(x: offset.offsetX, y: offset.offsetY)
     defer { context?.restoreGState() }
     let l = Localization(
       preference: configuration.languagePreference, preferredLanguages: preferredLanguages)
@@ -112,7 +161,8 @@ public enum SystemLanguages {
     }
     let layout = ContentLayout(
       width: bounds.width, height: bounds.height, dayDigits: digits[0].count,
-      move: configuration.appearance.moveContent, preview: previewMode, uptime: lastUptime)
+      move: configuration.appearance.moveContent, preview: previewMode,
+      uptime: movement.frame.layoutUptime)
     let area = bounds.insetBy(dx: bounds.width * 0.06, dy: bounds.height * 0.08)
 
     let smallSize = max(8, min(22, bounds.width / 48, bounds.height / 17))
@@ -188,7 +238,7 @@ public enum SystemLanguages {
     (text as NSString).draw(
       in: rect,
       withAttributes: [
-        .font: font, .foregroundColor: NSColor(white: 0.96, alpha: alpha),
+        .font: font, .foregroundColor: NSColor(white: 0.96, alpha: alpha * movement.frame.opacity),
         .paragraphStyle: paragraph,
       ])
   }

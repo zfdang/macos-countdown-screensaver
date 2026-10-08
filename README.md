@@ -12,7 +12,7 @@ A native macOS screen saver with a minimal black-background design, displaying c
 - Choose Gregorian or Chinese lunar dates, including distinct leap-month options and valid month lengths.
 - Automatically sort events, group simultaneous targets, skip expired events, and advance to the next target.
 - Display large days/hours/minutes/seconds digits, event names, target dates, and an optional next-event hint.
-- Move the entire text region every 60 seconds by default, within safe screen boundaries. Movement can be disabled; previews remain fixed.
+- Move the entire text region every 60 seconds by default, fading out at the old position and back in at the new position over 1.2 seconds, within safe screen boundaries. Movement can be disabled; previews remain fixed.
 - Support explicit event time zones, DST gaps/repeated times, empty and all-completed states, and persistent settings.
 - Default to Chinese when the primary system language is Chinese, and English for every other language. Manually select System, English, or 中文. All Chinese variants use Simplified Chinese in this version.
 - Adapt to small previews, portrait screens, Retina displays, and independent display views.
