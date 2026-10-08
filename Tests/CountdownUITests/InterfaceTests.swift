@@ -83,6 +83,12 @@ final class InterfaceTests: XCTestCase {
   }
   func testTimeZoneSearchKeepsDraftAndSelectionWhileFiltering() async {
     await MainActor.run {
+      for query in ["new york", "America/New_York", " AMERICA/NEW YORK "] {
+        XCTAssertEqual(
+          ConfigurationWindowController.timeZoneIdentifiers(
+            matching: query, selected: "UTC", current: "UTC"),
+          ["UTC", "America/New_York"])
+      }
       let c = controller()
       c.addEvent()
       let original = c.draft.value

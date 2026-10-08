@@ -529,6 +529,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     matching query: String, selected: String, current: String = TimeZone.current.identifier
   ) -> [String] {
     let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: "_", with: " ")
     let common = [
       current, "UTC", "Asia/Shanghai", "America/New_York", "America/Los_Angeles", "Europe/London",
       "Europe/Paris", "Asia/Tokyo", "Australia/Sydney",
