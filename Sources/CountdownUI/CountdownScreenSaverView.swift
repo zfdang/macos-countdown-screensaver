@@ -14,6 +14,7 @@ import ScreenSaver
   private var store: ConfigurationStore!
   private var controller: ConfigurationWindowController?
   private var lastPoll: TimeInterval = -.infinity
+  static let configurationPollInterval: TimeInterval = 60
   public override init?(frame: NSRect, isPreview: Bool) {
     super.init(frame: frame, isPreview: isPreview)
     configure(isPreview: isPreview)
@@ -53,7 +54,9 @@ import ScreenSaver
     content.reset()
     reloadConfiguration()
   }
-  public func reloadConfiguration() {
+  public func reloadConfiguration(
+    now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime
+  ) {
     do {
       let config = try store.load()
       if config.revision != content.configuration.revision { content.reset() }
@@ -61,8 +64,8 @@ import ScreenSaver
       content.configurationError = nil
     } catch { content.configurationError = error }
     content.preferredLanguages = SystemLanguages.preferred
-    content.update()
-    lastPoll = ProcessInfo.processInfo.systemUptime
+    content.update(now: now, uptime: uptime)
+    lastPoll = uptime
   }
   public override func startAnimation() {
     super.startAnimation()
@@ -74,11 +77,14 @@ import ScreenSaver
     content.reset()
   }
   public override func animateOneFrame() {
+    advanceFrame(now: Date(), uptime: ProcessInfo.processInfo.systemUptime)
+  }
+  func advanceFrame(now: Date, uptime: TimeInterval) {
     guard isAnimating else { return }
-    if ProcessInfo.processInfo.systemUptime - lastPoll >= 5 {
-      reloadConfiguration()
+    if uptime - lastPoll >= Self.configurationPollInterval || uptime < lastPoll {
+      reloadConfiguration(now: now, uptime: uptime)
     } else {
-      content.update()
+      content.update(now: now, uptime: uptime)
     }
   }
   public override var hasConfigureSheet: Bool { true }

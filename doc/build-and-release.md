@@ -29,7 +29,7 @@ Rosetta execution is not a substitute for native Intel hardware. CI runs tests a
 
 The user-visible version is `vYY.MM.DD-N`:
 
-- `YY.MM.DD` is the latest commit's committer date in `Asia/Singapore`.
+- `YY.MM.DD` is the latest commit's committer date in `Asia/Shanghai`.
 - `N` is `git rev-list --count HEAD`: all commits reachable from the build's HEAD, including merge commits.
 - Both CPU architectures use the same version for the same commit.
 - Rebuilding a commit retains its version; GitHub Actions run numbers are not used.
@@ -48,6 +48,12 @@ For example, a commit dated October 8, 2026 with 42 reachable commits produces `
 5. After a push to `main`, publish a versioned GitHub Release only when both architecture jobs succeed. A merged PR therefore produces a fresh build automatically. Re-running a successful commit updates its existing release assets rather than creating a second version.
 
 Runner availability is based on the [GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Only the release job has repository write permissions. Pull requests do not publish releases or use signing credentials.
+
+### Intel Runner Migration
+
+The workflow currently retains `macos-15-intel` for native x86_64 tests and acceptance. GitHub's [September 2025 retirement announcement](https://github.blog/changelog/2025-09-19-github-actions-macos-13-runner-image-is-closing-down/) described macOS 15 retirement in fall 2027 and an end to hosted macOS Intel support. As checked on October 8, 2026, the [current runner image catalog](https://github.com/actions/runner-images) also lists `macos-26-intel`. These sources differ, so neither an August 2027 cutoff nor a claim that macOS 15 is the last Intel image should be treated as a verified current guarantee.
+
+Review the latest runner announcements and complete migration planning before August 2027. Prefer a supported native Intel runner while one is available. If hosted Intel runners end, retain native hardware acceptance on a self-hosted Intel Mac, or build x86_64 on an ARM Mac using an SDK/toolchain that still supports that target and run compatible automated checks through Rosetta. Cross-compilation/Rosetta must be labeled separately from native Intel acceptance, and both architecture archives, metadata, signatures, and the macOS 13 deployment target must remain verified. Ubuntu cannot replace the macOS SDK, AppKit/ScreenSaver host, or macOS signing checks.
 
 ## Signing
 

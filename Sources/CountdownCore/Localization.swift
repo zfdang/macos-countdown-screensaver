@@ -11,10 +11,12 @@ public enum TextKey: String, CaseIterable {
   case longTitle, invalidConfiguration, unsupportedVersion, saveFailed, past, first, second,
     occurrence
   case lunarMonth, leapMonth, lunarDay, converted, options, preview, repair, eventPosition,
-    additionalOne, additionalMany, targets, eventDetails, appearance, livePreview, settingsHint
+    additionalOne, additionalMany, targets, eventDetails, appearance, livePreview, settingsHint,
+    searchZones
 }
 
 public struct Localization {
+  private static let dateFormatters = DateFormatterCache()
   public let language: UILanguage
   public init(
     preference: LanguagePreference, preferredLanguages: [String] = Locale.preferredLanguages
@@ -46,6 +48,7 @@ public struct Localization {
     .name: ("Name", "名称"), .calendar: ("Calendar", "历法"), .date: ("Date", "日期"),
     .time: ("Time", "时间"),
     .zone: ("Time zone", "时区"), .equivalent: ("Gregorian equivalent: %@", "对应公历：%@"),
+    .searchZones: ("Search zones", "搜索时区"),
     .showDate: ("Show date", "显示日期"), .showNext: ("Show next event", "显示下一目标"),
     .move: ("Move content slowly", "缓慢移动内容"),
     .sorted: ("Sorted chronologically · %d / 5", "按时间自动排序 · %d / 5"),
@@ -124,12 +127,10 @@ public struct Localization {
     return "三十"
   }
   public func gregorianDate(_ event: CountdownEvent) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = locale
-    formatter.calendar = Calendar(identifier: .gregorian)
-    formatter.timeZone = TimeZone(identifier: event.input.timeZoneIdentifier)
-    formatter.dateFormat = language == .chinese ? "yyyy年MM月dd日 HH:mm:ss" : "MMM d, yyyy HH:mm:ss"
-    return formatter.string(from: Date(timeIntervalSince1970: event.resolvedTimestamp)) + " · "
+    return Self.dateFormatters.string(
+      from: Date(timeIntervalSince1970: event.resolvedTimestamp), locale: locale,
+      zone: event.input.timeZoneIdentifier,
+      format: language == .chinese ? "yyyy年MM月dd日 HH:mm:ss" : "MMM d, yyyy HH:mm:ss") + " · "
       + event.input.timeZoneIdentifier
   }
   public func date(_ event: CountdownEvent) -> String {

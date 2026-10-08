@@ -40,7 +40,7 @@ scripts/acceptance.sh arm64
 
 构建结果位于 `dist/`；`all` 会生成 ARM、Intel 和 Universal 版本。使用 `scripts/build.sh arm64` 或 `scripts/build.sh x86_64` 可单独构建某个架构。版本信息生成需要完整 Git 历史和 Python 3.9+。
 
-GitHub Actions 会为每个 PR 测试两个架构。合并或推送到 `main` 后，只有单元测试和 bundle 验收全部通过，才会自动发布新的 GitHub Release，提供独立的 ARM、Intel 构建。版本号为 **`vYY.MM.DD-<Git 提交次数>`**：日期采用最近一次提交在 Asia/Singapore 时区的日期，次数统计当前 HEAD 可达的全部提交；两个架构版本号一致。
+GitHub Actions 会为每个 PR 测试两个架构。合并或推送到 `main` 后，只有单元测试和 bundle 验收全部通过，才会自动发布新的 GitHub Release，提供独立的 ARM、Intel 构建。版本号为 **`vYY.MM.DD-<Git 提交次数>`**：日期采用最近一次提交在 Asia/Shanghai 时区的日期，次数统计当前 HEAD 可达的全部提交；两个架构版本号一致。
 
 ## 文档
 

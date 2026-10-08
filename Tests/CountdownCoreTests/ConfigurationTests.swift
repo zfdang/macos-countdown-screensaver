@@ -14,6 +14,29 @@ final class MemoryBackend: ConfigurationBackend {
 
 final class ConfigurationTests: XCTestCase {
   let service = CalendarConversionService()
+  func testUnchangedSnapshotsRetainIdentityAndChangesStillValidate() throws {
+    let backend = MemoryBackend()
+    let store = ConfigurationStore(backend: backend)
+    let empty = try store.load()
+    XCTAssertEqual(try store.load(), empty)
+    let external = ConfigurationStore(backend: backend)
+    var changed = Configuration()
+    changed.languagePreference = .zhHans
+    let saved = try external.save(changed)
+    XCTAssertEqual(try store.load(), saved)
+    XCTAssertEqual(try store.load(), saved)
+    let validData = backend.data
+    backend.data = Data("corrupt".utf8)
+    XCTAssertThrowsError(try store.load())
+    XCTAssertThrowsError(try store.load())
+    backend.data = validData
+    XCTAssertEqual(try store.load(), saved)
+    backend.data = nil
+    let deleted = try store.load()
+    XCTAssertTrue(deleted.events.isEmpty)
+    XCTAssertNotEqual(deleted.revision, saved.revision)
+    XCTAssertEqual(try store.load(), deleted)
+  }
   func testSaveLoadAndLanguageAppearancePersistence() throws {
     let backend = MemoryBackend()
     XCTAssertTrue(try ConfigurationStore(backend: backend).load().events.isEmpty)
@@ -39,6 +62,32 @@ final class ConfigurationTests: XCTestCase {
     let reopened = ConfigurationStore(
       backend: DefaultsBackend(defaults: UserDefaults(suiteName: name)!))
     XCTAssertEqual(try reopened.load(), saved)
+  }
+  func testDefaultsBackendSeesChangesFromAnotherProcess() throws {
+    let name = "CountdownTests.\(UUID())"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let store = ConfigurationStore(backend: DefaultsBackend(defaults: defaults))
+    _ = try store.load()
+    var changed = Configuration()
+    changed.languagePreference = .zhHans
+    let data = try JSONEncoder().encode(changed)
+    let writer = Process()
+    writer.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+    writer.arguments = [
+      "write", name, DefaultsBackend.dataKey, "-data",
+      data.map { String(format: "%02x", $0) }.joined(),
+    ]
+    try writer.run()
+    writer.waitUntilExit()
+    XCTAssertEqual(writer.terminationStatus, 0)
+    let deadline = Date().addingTimeInterval(3)
+    var received = try store.load()
+    while received != changed && Date() < deadline {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+      received = try store.load()
+    }
+    XCTAssertEqual(received, changed)
   }
   func testMaximumCountDeleteAndNewIdentity() throws {
     let draft = DraftConfiguration(Configuration())

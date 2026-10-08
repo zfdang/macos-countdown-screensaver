@@ -17,7 +17,7 @@ import AppKit
 
 @MainActor
 public final class ConfigurationWindowController: NSWindowController, NSTableViewDataSource,
-  NSTableViewDelegate, NSTextFieldDelegate, NSWindowDelegate
+  NSTableViewDelegate, NSSearchFieldDelegate, NSWindowDelegate
 {
   public private(set) var draft: DraftConfiguration
   public private(set) var selectedID: UUID?
@@ -37,6 +37,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private var dayPicker = NSPopUpButton()
   private var hourField = NSTextField(), minuteField = NSTextField(), secondField = NSTextField()
   private var zonePicker = NSPopUpButton()
+  private var zoneSearch = NSSearchField()
   private var calendarPicker = NSPopUpButton()
   private var languagePicker = NSPopUpButton()
   private var occurrencePicker = NSPopUpButton()
@@ -50,7 +51,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private var refreshing = false
   private var pendingFormError: Error?
   private var invalidText: [String: String] = [:]
-  private var previewTimer: Timer?
+  private let previewTimer = TimerLifetime()
   private var l: Localization {
     Localization(
       preference: draft.value.languagePreference, preferredLanguages: SystemLanguages.preferred)
@@ -69,7 +70,6 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     buildWindow()
   }
   required init?(coder: NSCoder) { fatalError("Use init(store:)") }
-  deinit { previewTimer?.invalidate() }
 
   private func buildWindow() {
     if window == nil {
@@ -156,11 +156,14 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
           minuteField, NSTextField(labelWithString: ":"), secondField,
         ]))
     zonePicker = popup(id: "timeZone", action: #selector(dateChanged))
-    zonePicker.addItems(
-      withTitles: Array(
-        Set(TimeZone.knownTimeZoneIdentifiers + ["UTC", TimeZone.current.identifier])
-      ).sorted())
-    editor.addArrangedSubview(row(.zone, [zonePicker]))
+    zoneSearch = NSSearchField()
+    zoneSearch.placeholderString = l.text(.searchZones)
+    zoneSearch.delegate = self
+    zoneSearch.setAccessibilityIdentifier("searchTimeZones")
+    zoneSearch.translatesAutoresizingMaskIntoConstraints = false
+    zoneSearch.widthAnchor.constraint(equalToConstant: 146).isActive = true
+    zoneSearch.font = .systemFont(ofSize: 12)
+    editor.addArrangedSubview(row(.zone, [zonePicker, zoneSearch]))
     occurrencePicker = popup(id: "occurrence", action: #selector(dateChanged))
     occurrenceRow = row(.occurrence, [occurrencePicker])
     editor.addArrangedSubview(occurrenceRow)
@@ -234,7 +237,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     footer.addArrangedSubview(cancel)
     footer.addArrangedSubview(saveButton)
     let content = (window?.contentView as? SettingsBackgroundView) ?? SettingsBackgroundView()
-    content.subviews.forEach { $0.removeFromSuperview() }
+    for child in content.subviews { child.removeFromSuperview() }
     if window?.contentView !== content { window?.contentView = content }
     // Keep actions outside the scrolling document so even short displays can save/cancel.
     let settingsScroll = NSScrollView()
@@ -275,10 +278,16 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     layoutSettingsContent()
     window?.layoutIfNeeded()
     window?.display()
-    previewTimer?.invalidate()
-    previewTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-      MainActor.assumeIsolated { self?.updatePreview() }
-    }
+    previewTimer.replace(
+      with: Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+        MainActor.assumeIsolated {
+          guard let self else {
+            timer.invalidate()
+            return
+          }
+          self.updatePreview()
+        }
+      })
   }
   static func initialSize(visibleFrame: NSRect?) -> NSSize {
     guard let frame = visibleFrame else { return NSSize(width: 900, height: 760) }
@@ -360,7 +369,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     result.setAccessibilityIdentifier(id)
     result.translatesAutoresizingMaskIntoConstraints = false
     result.widthAnchor.constraint(
-      lessThanOrEqualToConstant: id == "timeZone" ? 432 : id == "occurrence" ? 260 : 180
+      lessThanOrEqualToConstant: id == "timeZone" ? 280 : id == "occurrence" ? 260 : 180
     )
     .isActive = true
     return result
@@ -377,9 +386,9 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     defer { refreshing = false }
     let controls: [NSControl] = [
       titleField, yearField, monthPicker, dayPicker, hourField, minuteField, secondField,
-      zonePicker, calendarPicker, occurrencePicker,
+      zonePicker, zoneSearch, calendarPicker, occurrencePicker,
     ]
-    controls.forEach { $0.isEnabled = event != nil && loadError == nil }
+    for control in controls { control.isEnabled = event != nil && loadError == nil }
     guard let event else {
       occurrenceRow.isHidden = true
       titleField.stringValue = ""
@@ -397,7 +406,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     minuteField.stringValue = invalidText["minute"] ?? String(format: "%02d", event.input.minute)
     secondField.stringValue = invalidText["second"] ?? String(format: "%02d", event.input.second)
     calendarPicker.selectItem(at: event.input.calendar == .gregorian ? 0 : 1)
-    zonePicker.selectItem(withTitle: event.input.timeZoneIdentifier)
+    refreshTimeZones()
     refreshDateOptions(input: event.input)
     updateStatus()
   }
@@ -516,7 +525,33 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     addButton.isEnabled = draft.value.events.count < 5 && loadError == nil
     deleteButton.isEnabled = selectedID != nil && loadError == nil
   }
-  public func controlTextDidChange(_ obj: Notification) { dateChanged() }
+  static func timeZoneIdentifiers(
+    matching query: String, selected: String, current: String = TimeZone.current.identifier
+  ) -> [String] {
+    let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    let common = [
+      current, "UTC", "Asia/Shanghai", "America/New_York", "America/Los_Angeles", "Europe/London",
+      "Europe/Paris", "Asia/Tokyo", "Australia/Sydney",
+    ]
+    let all = Set(TimeZone.knownTimeZoneIdentifiers + common)
+    let matches = all.filter {
+      search.isEmpty
+        || $0.replacingOccurrences(of: "_", with: " ").localizedCaseInsensitiveContains(search)
+    }
+    let pinned = [selected] + common.filter { matches.contains($0) }
+    var seen = Set<String>()
+    return (pinned + matches.sorted()).filter { !$0.isEmpty && seen.insert($0).inserted }
+  }
+  private func refreshTimeZones() {
+    let selected = event?.input.timeZoneIdentifier ?? TimeZone.current.identifier
+    zonePicker.removeAllItems()
+    zonePicker.addItems(
+      withTitles: Self.timeZoneIdentifiers(matching: zoneSearch.stringValue, selected: selected))
+    zonePicker.selectItem(withTitle: selected)
+  }
+  public func controlTextDidChange(_ obj: Notification) {
+    if obj.object as? NSSearchField === zoneSearch { refreshTimeZones() } else { dateChanged() }
+  }
   @objc private func dateChanged() {
     guard !refreshing, let event else { return }
     calendarConverted = false
@@ -656,8 +691,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private func complete() {
     guard !isFinished else { return }
     isFinished = true
-    previewTimer?.invalidate()
-    previewTimer = nil
+    previewTimer.replace(with: nil)
     onFinish?()
   }
   private func finish() {

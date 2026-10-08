@@ -10,14 +10,13 @@ public final class DefaultsBackend: ConfigurationBackend {
   private let defaults: UserDefaults
   public init(defaults: UserDefaults) { self.defaults = defaults }
   public func read() throws -> Data? {
-    defaults.synchronize()
     guard let object = defaults.object(forKey: Self.dataKey) else { return nil }
     guard let data = object as? Data else { throw CountdownError.invalidConfiguration }
     return data
   }
   public func write(_ data: Data) throws {
     defaults.set(data, forKey: Self.dataKey)
-    guard defaults.synchronize(), defaults.data(forKey: Self.dataKey) == data else {
+    guard defaults.data(forKey: Self.dataKey) == data else {
       throw CountdownError.saveFailed
     }
   }
@@ -26,6 +25,8 @@ public final class DefaultsBackend: ConfigurationBackend {
 public final class ConfigurationStore {
   private let backend: ConfigurationBackend
   private let service: CalendarConversionService
+  private var cachedData: Data?
+  private var cachedConfiguration: Configuration?
   public init(
     backend: ConfigurationBackend, service: CalendarConversionService = CalendarConversionService()
   ) {
@@ -33,10 +34,19 @@ public final class ConfigurationStore {
     self.service = service
   }
   public func load() throws -> Configuration {
-    guard let data = try backend.read() else { return Configuration() }
+    let data = try backend.read()
+    if let cachedConfiguration, data == cachedData { return cachedConfiguration }
+    guard let data else {
+      let empty = Configuration()
+      cachedData = nil
+      cachedConfiguration = empty
+      return empty
+    }
     do {
       let value = try JSONDecoder().decode(Configuration.self, from: data)
       try value.validated(using: service)
+      cachedData = data
+      cachedConfiguration = value
       return value
     } catch let error as CountdownError { throw error } catch {
       throw CountdownError.invalidConfiguration
@@ -48,6 +58,8 @@ public final class ConfigurationStore {
     result.revision = UUID()
     let data = try JSONEncoder().encode(result)
     do { try backend.write(data) } catch { throw CountdownError.saveFailed }
+    cachedData = data
+    cachedConfiguration = result
     return result
   }
 }

@@ -40,7 +40,7 @@ scripts/acceptance.sh arm64
 
 Build outputs are in `dist/`; `all` creates ARM, Intel, and Universal bundles. Use `scripts/build.sh arm64` or `scripts/build.sh x86_64` to build only one architecture. A full Git checkout and Python 3.9+ are required for version metadata.
 
-GitHub Actions tests both architectures for each PR. After a merge/push to `main`, successful tests and bundle acceptance automatically publish a new GitHub Release with separate ARM and Intel builds. Versions use **`vYY.MM.DD-<Git commit count>`**, taking the latest commit's date in Asia/Singapore and all commits reachable from HEAD. Both architectures share the same version.
+GitHub Actions tests both architectures for each PR. After a merge/push to `main`, successful tests and bundle acceptance automatically publish a new GitHub Release with separate ARM and Intel builds. Versions use **`vYY.MM.DD-<Git commit count>`**, taking the latest commit's date in Asia/Shanghai and all commits reachable from HEAD. Both architectures share the same version.
 
 ## Documentation
 

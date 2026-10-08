@@ -9,7 +9,7 @@ spec.loader.exec_module(version)
 
 class VersionTests(unittest.TestCase):
     def test_date_and_commit_count_and_full_sha(self):
-        # 2026-10-07 17:00 UTC is October 8 in Singapore.
+        # 2026-10-07 17:00 UTC is October 8 in Shanghai.
         with patch.object(version.subprocess, 'check_output', side_effect=['false\n', '42\n', '1791392400\n', 'a' * 40 + '\n']):
             result = version.metadata()
         self.assertEqual(result['version'], 'v26.10.08-42')
