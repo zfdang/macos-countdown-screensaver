@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import ScreenSaver
 
 #if SWIFT_PACKAGE
@@ -73,7 +74,54 @@ import ScreenSaver
       to: URL(fileURLWithPath: directory + "/" + name + "-small.png"))
     controller.cancelPressed()
   }
-  print("PASS: rendered English, Chinese, small and portrait countdown views")
+  view.reset()
+  view.previewMode = false
+  configuration.languagePreference = .en
+  configuration.events[0].title = "Project launch"
+  configuration.appearance.moveContent = true
+  view.configuration = configuration
+  view.setFrameSize(NSSize(width: 1000, height: 650))
+  for (name, uptime) in [
+    ("old", 59.0), ("out", 60.3), ("black", 60.6),
+    ("in", 60.9), ("new", 61.2),
+  ] {
+    if uptime == 60.3 { view.update(now: now, uptime: 60) }
+    view.update(now: now, uptime: uptime)
+    let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    try bitmap.representation(using: .png, properties: [:])!.write(
+      to: URL(fileURLWithPath: directory + "/movement-" + name + ".png"))
+  }
+  view.reset()
+  view.setFrameSize(NSSize(width: 3840, height: 2160))
+  let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+  func cpuSeconds() -> Double {
+    var usage = rusage()
+    getrusage(RUSAGE_SELF, &usage)
+    return Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec)
+      + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1_000_000
+  }
+  let started = cpuSeconds()
+  for minute in 1...5 {
+    let boundary = Double(minute * 60)
+    view.update(now: now, uptime: boundary - 1)
+    for frame in 0...29 {
+      view.update(now: now, uptime: boundary + Double(frame) / 24)
+      view.cacheDisplay(in: view.bounds, to: bitmap)
+    }
+  }
+  let cpuPerFade = (cpuSeconds() - started) / 5
+  view.reset()
+  let report = String(
+    format:
+      "3840x2160 offscreen, 30 renders/fade, 5 fades: %.1f ms CPU/fade; %.3f%% of one core averaged over a minute. This is a drawing microbenchmark, not a battery/GPU measurement.\n",
+    cpuPerFade * 1000, cpuPerFade / 60 * 100)
+  try report.write(
+    to: URL(fileURLWithPath: directory + "/movement-performance.txt"),
+    atomically: true, encoding: .utf8)
+  print(report, terminator: "")
+  print(
+    "PASS: rendered English, Chinese, small and portrait countdown views and movement fade phases")
 }
 
 // Keep the run loop alive after closure to exercise the old timer's crash window.

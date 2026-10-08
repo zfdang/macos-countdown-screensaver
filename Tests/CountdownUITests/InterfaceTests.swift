@@ -40,9 +40,10 @@ final class InterfaceTests: XCTestCase {
       view.configuration.appearance.moveContent = true
       XCTAssertTrue(view.update(now: now, uptime: 60))
       XCTAssertFalse(view.update(now: now, uptime: 119))
-      XCTAssertTrue(view.update(now: now, uptime: 120))
+      XCTAssertFalse(view.update(now: now, uptime: 120))
+      XCTAssertTrue(view.update(now: now, uptime: 120.3))
       view.previewMode = true
-      XCTAssertTrue(view.update(now: now, uptime: 120))
+      XCTAssertTrue(view.update(now: now, uptime: 120.3))
       XCTAssertFalse(view.update(now: now, uptime: 180))
       view.reset()
       XCTAssertTrue(view.update(now: now, uptime: 180))
@@ -566,7 +567,9 @@ final class InterfaceTests: XCTestCase {
       let first = try render(0)
       let before = try render(59)
       XCTAssertEqual(first, before)
-      XCTAssertNotEqual(first, try render(60))
+      XCTAssertEqual(first, try render(60))
+      XCTAssertNotEqual(first, try render(60.3))
+      XCTAssertNotEqual(first, try render(61.2))
       view.previewMode = true
       XCTAssertEqual(try render(0), try render(60))
       view.previewMode = false

@@ -95,7 +95,7 @@ An expiration message lasts at most two seconds. If the next event expires durin
 
 Each display adapts its own layout while showing the same event. Use the same time source and configuration rather than a mutable global current-event index.
 
-To reduce prolonged fixed placement, move the content block slightly every 60 seconds within safe bounds. Cap displacement at approximately 2% of the view size and retain edge margins. Enable the localized “Move content slowly” option by default. Keep preview positioning fixed for layout inspection.
+To reduce prolonged fixed placement, move the content block slightly every 60 seconds within safe bounds. Cap displacement at approximately 2% of the view size and retain edge margins. Fade out at the old position for 0.6 seconds, change position while invisible, then fade in for 0.6 seconds. Use eased opacity and a temporary 24 Hz redraw timer only during this transition; countdown calculations retain the normal one-second cadence. Cancel the timer on stop, reset, detach, or when movement is disabled. Startup and wake settle at the current position without replaying past transitions. Enable the localized “Move content slowly” option by default. Keep preview positioning fixed for layout inspection.
 
 ## 4. Configuration Interface
 
@@ -324,7 +324,7 @@ Validate count, fields, finite timestamps, zones, preference values, and schema 
 - Load a complete snapshot on start and reset transient stopped/expiration state.
 - After Save, emit a cross-process update signal without event content. Receivers reload and validate the complete snapshot, including language preference.
 - Treat notifications as an optimization. Check configuration revision at a low frequency to recover from missed notifications; verify actual preference visibility in the host.
-- Use the screen saver animation callback for once-per-second calculations and redraw only on content changes. Schedule minor movement through the same callback.
+- Use the screen saver animation callback for once-per-second calculations and redraw only on content changes. Detect minute-boundary movement through the same callback and use a short-lived redraw timer for the 1.2-second fade.
 - Stop updating when stopped; release runtime resources and remove observers on destruction. Do not share mutable completion state between display views.
 - Recompute state and layout after clock changes, resume, or resizing; refresh automatic language resolution at lifecycle boundaries.
 
