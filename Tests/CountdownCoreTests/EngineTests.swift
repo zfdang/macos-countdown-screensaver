@@ -3,6 +3,21 @@ import XCTest
 @testable import CountdownCore
 
 final class EngineTests: XCTestCase {
+  func testFooterCollapsesHiddenDateWithoutLeavingEmptyRow() {
+    for compact in [false, true] {
+      let withDate = FooterLayout(height: 650, compact: compact, showDate: true, showNext: true)
+      let withoutDate = FooterLayout(height: 650, compact: compact, showDate: false, showNext: true)
+      XCTAssertEqual(withDate.dateY, withoutDate.positionY)
+      XCTAssertEqual(withDate.positionY! - withoutDate.positionY!, 0.13, accuracy: 0.0001)
+      XCTAssertEqual(withDate.nextY! - withoutDate.nextY!, 0.13, accuracy: 0.0001)
+      XCTAssertNil(withoutDate.dateY)
+      XCTAssertNil(
+        FooterLayout(height: 80, compact: compact, showDate: true, showNext: false).positionY)
+      XCTAssertNil(
+        FooterLayout(height: 650, compact: compact, showDate: false, showNext: false).nextY)
+    }
+  }
+
   func configuration(_ timestamps: [Double]) -> Configuration {
     var result = Configuration()
     result.events = timestamps.enumerated().map {

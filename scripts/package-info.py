@@ -14,7 +14,8 @@ for bundle, executable, identifier, package in [
         'CFBundleDevelopmentRegion': 'en', 'CFBundleLocalizations': ['en', 'zh-Hans'],
         'CFBundleExecutable': executable, 'CFBundleIdentifier': identifier,
         'CFBundleInfoDictionaryVersion': '6.0', 'CFBundleName': 'Countdown',
-        'CFBundlePackageType': package, 'CFBundleShortVersionString': metadata['version'],
+        'CFBundlePackageType': package, 'CFBundleShortVersionString': metadata['bundleVersion'],
+        'CountdownReleaseVersion': metadata['version'], 'CFBundleIconFile': 'Countdown.icns',
         'CFBundleVersion': metadata['build'], 'LSMinimumSystemVersion': '13.0',
         'CountdownGitCommit': metadata['commit'], 'NSHighResolutionCapable': True,
     }
@@ -28,3 +29,5 @@ for bundle, executable, identifier, package in [
     resources.mkdir(exist_ok=True)
     for name in ['README.md', 'LICENSE']:
         (resources / name).write_bytes(pathlib.Path(name).read_bytes())
+
+    (resources / 'Countdown.icns').write_bytes(pathlib.Path('Assets/Countdown.icns').read_bytes())

@@ -22,6 +22,7 @@ public enum SystemLanguages {
   private var lastUptime: TimeInterval = 0
   private var lastRenderKey = ""
   public override var isFlipped: Bool { true }
+  public override var isOpaque: Bool { true }
   public func reset() {
     engine.reset()
     lastRenderKey = ""
@@ -100,7 +101,7 @@ public enum SystemLanguages {
       move: configuration.appearance.moveContent, preview: previewMode, uptime: lastUptime)
     let area = bounds.insetBy(dx: bounds.width * 0.06, dy: bounds.height * 0.08)
 
-    let smallSize = max(8, min(22, bounds.width / 48))
+    let smallSize = max(8, min(22, bounds.width / 48, bounds.height / 17))
     drawText(
       title,
       rect: NSRect(x: area.minX, y: area.minY, width: area.width, height: area.height * 0.18),
@@ -128,26 +129,31 @@ public enum SystemLanguages {
           x: x, y: y + rowHeight * 0.76, width: width,
           height: max(rowHeight * 0.24, smallSize * 1.5)), size: smallSize, alpha: 0.5)
     }
-    let footerY = area.minY + area.height * (layout.compact ? 0.76 : 0.66)
-    if configuration.appearance.showTargetDate && bounds.height >= 140 {
+    let footer = FooterLayout(
+      height: bounds.height, compact: layout.compact,
+      showDate: configuration.appearance.showTargetDate,
+      showNext: configuration.appearance.showNextTarget && layout.showNext && !nextText.isEmpty)
+    if let y = footer.dateY {
       drawText(
         detail,
-        rect: NSRect(x: area.minX, y: footerY, width: area.width, height: area.height * 0.12),
+        rect: NSRect(
+          x: area.minX, y: area.minY + area.height * y, width: area.width,
+          height: area.height * 0.12),
         size: smallSize, alpha: 0.5)
     }
-    if bounds.height >= 140 {
+    if let y = footer.positionY {
       drawText(
         position,
         rect: NSRect(
-          x: area.minX, y: footerY + area.height * 0.13, width: area.width,
-          height: area.height * 0.07
+          x: area.minX, y: area.minY + area.height * y, width: area.width,
+          height: max(area.height * 0.07, smallSize * 1.4)
         ), size: smallSize, alpha: 0.5)
     }
-    if configuration.appearance.showNextTarget && layout.showNext {
+    if let y = footer.nextY {
       drawText(
         nextText,
         rect: NSRect(
-          x: area.minX, y: footerY + area.height * 0.21, width: area.width,
+          x: area.minX, y: area.minY + area.height * y, width: area.width,
           height: area.height * 0.1), size: smallSize * 0.85, alpha: 0.4)
     }
   }

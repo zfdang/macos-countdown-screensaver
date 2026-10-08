@@ -73,9 +73,11 @@ public final class CalendarConversionService {
     else { throw CountdownError.invalidDate }
     var result: DateComponents
     if input.calendar == .chinese {
-      let month = try lunarMonths(in: input.year).first {
-        $0.number == input.month && $0.isLeap == input.isLeapMonth
-      }!
+      guard
+        let month = try lunarMonths(in: input.year).first(where: {
+          $0.number == input.month && $0.isLeap == input.isLeapMonth
+        })
+      else { throw CountdownError.invalidDate }
       let date = mappingCalendar.date(byAdding: .day, value: input.day - 1, to: month.start)!
       result = mappingCalendar.dateComponents([.year, .month, .day], from: date)
     } else {

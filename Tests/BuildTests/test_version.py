@@ -12,8 +12,9 @@ class VersionTests(unittest.TestCase):
         # 2026-10-07 17:00 UTC is October 8 in Singapore.
         with patch.object(version.subprocess, 'check_output', side_effect=['false\n', '42\n', '1791392400\n', 'a' * 40 + '\n']):
             result = version.metadata()
-        self.assertEqual(result['version'], '20261008.42')
+        self.assertEqual(result['version'], 'v26.10.08-42')
         self.assertEqual(result['build'], '42')
+        self.assertEqual(result['bundleVersion'], '26.10.8')
         self.assertEqual(result['commit'], 'a' * 40)
 
     def test_shallow_history_is_rejected(self):

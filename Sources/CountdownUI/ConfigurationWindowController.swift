@@ -32,6 +32,8 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private var calendarPicker = NSPopUpButton()
   private var languagePicker = NSPopUpButton()
   private var occurrencePicker = NSPopUpButton()
+  private var occurrenceRow = NSStackView()
+  private var calendarConverted = false
   private var errorLabel = NSTextField(wrappingLabelWithString: "")
   private var equivalentLabel = NSTextField(wrappingLabelWithString: "")
   private var saveButton = NSButton(), addButton = NSButton(), deleteButton = NSButton()
@@ -50,6 +52,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   public init(store: ConfigurationStore) {
     self.store = store
     do { draft = DraftConfiguration(try store.load()) } catch {
+      calendarConverted = false
       draft = DraftConfiguration(Configuration())
       loadError = error
     }
@@ -63,50 +66,64 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   private func buildWindow() {
     if window == nil {
       window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 850, height: 620),
+        contentRect: NSRect(x: 0, y: 0, width: 900, height: 760),
         styleMask: [.titled], backing: .buffered, defer: false)
       window?.isReleasedWhenClosed = false
     }
     window?.title = l.text(.settings)
     refreshing = true
-    let root = NSStackView()
-    root.orientation = .vertical
-    root.spacing = 12
-    root.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+    let root = vertical(spacing: 18)
+    root.edgeInsets = NSEdgeInsets(top: 24, left: 24, bottom: 20, right: 24)
+    let heading = NSTextField(labelWithString: l.text(.settings))
+    heading.font = .systemFont(ofSize: 22, weight: .semibold)
+    root.addArrangedSubview(heading)
+    let subtitle = NSTextField(labelWithString: l.text(.settingsHint))
+    subtitle.font = .systemFont(ofSize: 12)
+    subtitle.textColor = .secondaryLabelColor
+    root.addArrangedSubview(subtitle)
+    root.setCustomSpacing(5, after: heading)
+
     let columns = NSStackView()
     columns.orientation = .horizontal
     columns.alignment = .top
     columns.spacing = 18
-    let left = NSStackView()
-    left.orientation = .vertical
-    left.alignment = .leading
+    let left = vertical(spacing: 12)
+    left.addArrangedSubview(sectionTitle(.targets))
     let count = NSTextField(labelWithString: l.text(.sorted, draft.value.events.count))
+    count.font = .systemFont(ofSize: 11)
+    count.textColor = .secondaryLabelColor
     left.addArrangedSubview(count)
     if table.tableColumns.isEmpty {
       table.addTableColumn(NSTableColumn(identifier: NSUserInterfaceItemIdentifier("event")))
     }
     table.headerView = nil
-    table.rowHeight = 64
+    table.rowHeight = 78
+    table.intercellSpacing = NSSize(width: 0, height: 6)
+    table.backgroundColor = .clear
+    table.style = .sourceList
     table.dataSource = self
     table.delegate = self
     table.setAccessibilityIdentifier("eventList")
     let scroll = NSScrollView()
     scroll.documentView = table
     scroll.hasVerticalScroller = true
+    scroll.drawsBackground = false
     scroll.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      scroll.widthAnchor.constraint(equalToConstant: 250),
-      scroll.heightAnchor.constraint(equalToConstant: 330),
+      scroll.widthAnchor.constraint(equalToConstant: 208),
+      scroll.heightAnchor.constraint(equalToConstant: 348),
     ])
     left.addArrangedSubview(scroll)
     addButton = button(.add, action: #selector(addEvent), id: "addEvent")
     deleteButton = button(.delete, action: #selector(deleteEvent), id: "deleteEvent")
     left.addArrangedSubview(NSStackView(views: [addButton, deleteButton]))
-    columns.addArrangedSubview(left)
-    let editor = NSStackView()
-    editor.orientation = .vertical
-    editor.alignment = .leading
-    editor.spacing = 9
+    let sidebar = card(left)
+    sidebar.widthAnchor.constraint(equalToConstant: 240).isActive = true
+    columns.addArrangedSubview(sidebar)
+
+    let right = vertical(spacing: 14)
+    let editor = vertical(spacing: 10)
+    editor.addArrangedSubview(sectionTitle(.eventDetails))
     titleField = field(id: "title")
     yearField = field(id: "year")
     hourField = field(id: "hour")
@@ -123,52 +140,88 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
       row(
         .time,
         [
-          hourField, NSTextField(labelWithString: ":"), minuteField,
-          NSTextField(labelWithString: ":"), secondField,
+          hourField, NSTextField(labelWithString: ":"),
+          minuteField, NSTextField(labelWithString: ":"), secondField,
         ]))
     zonePicker = popup(id: "timeZone", action: #selector(dateChanged))
-    let zones = Array(
-      Set(TimeZone.knownTimeZoneIdentifiers + ["UTC", TimeZone.current.identifier])
-    ).sorted()
-    zonePicker.addItems(withTitles: zones)
+    zonePicker.addItems(
+      withTitles: Array(
+        Set(TimeZone.knownTimeZoneIdentifiers + ["UTC", TimeZone.current.identifier])
+      ).sorted())
     editor.addArrangedSubview(row(.zone, [zonePicker]))
     occurrencePicker = popup(id: "occurrence", action: #selector(dateChanged))
-    editor.addArrangedSubview(row(.occurrence, [occurrencePicker]))
+    occurrenceRow = row(.occurrence, [occurrencePicker])
+    editor.addArrangedSubview(occurrenceRow)
     equivalentLabel = NSTextField(wrappingLabelWithString: "")
     equivalentLabel.font = .systemFont(ofSize: 11)
+    equivalentLabel.textColor = .secondaryLabelColor
+    equivalentLabel.setAccessibilityIdentifier("equivalent")
     errorLabel = NSTextField(wrappingLabelWithString: "")
-    errorLabel.textColor = .systemOrange
     errorLabel.font = .systemFont(ofSize: 11)
-    editor.addArrangedSubview(equivalentLabel)
-    editor.addArrangedSubview(errorLabel)
+    errorLabel.setAccessibilityIdentifier("status")
+    for label in [equivalentLabel, errorLabel] {
+      label.translatesAutoresizingMaskIntoConstraints = false
+      label.widthAnchor.constraint(equalToConstant: 540).isActive = true
+      label.heightAnchor.constraint(equalToConstant: 24).isActive = true
+      editor.addArrangedSubview(label)
+    }
+    right.addArrangedSubview(card(editor))
+    let previewSection = vertical(spacing: 8)
+    previewSection.addArrangedSubview(sectionTitle(.livePreview))
     preview = CountdownContentView()
     preview.previewMode = true
+    preview.wantsLayer = true
+    preview.layer?.cornerRadius = 8
+    preview.layer?.masksToBounds = true
     preview.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      preview.widthAnchor.constraint(equalToConstant: 500),
-      preview.heightAnchor.constraint(equalToConstant: 165),
+      preview.widthAnchor.constraint(equalToConstant: 572),
+      preview.heightAnchor.constraint(equalToConstant: 150),
     ])
-    editor.addArrangedSubview(preview)
-    columns.addArrangedSubview(editor)
+    previewSection.addArrangedSubview(preview)
+    right.addArrangedSubview(previewSection)
+    columns.addArrangedSubview(right)
     root.addArrangedSubview(columns)
+
+    let preferences = NSStackView()
+    preferences.orientation = .horizontal
+    preferences.alignment = .top
+    preferences.spacing = 30
+    let language = vertical(spacing: 10)
+    language.addArrangedSubview(sectionTitle(.language))
     languagePicker = popup(id: "language", action: #selector(languageChanged))
     languagePicker.addItems(withTitles: [l.text(.system), "English", "中文"])
     languagePicker.selectItem(
-      at: LanguagePreference.allCases.firstIndex(of: draft.value.languagePreference)!)
-    root.addArrangedSubview(row(.language, [languagePicker]))
+      at: LanguagePreference.allCases.firstIndex(of: draft.value.languagePreference) ?? 0)
+    language.addArrangedSubview(languagePicker)
+    language.widthAnchor.constraint(equalToConstant: 208).isActive = true
+    preferences.addArrangedSubview(language)
+    let appearance = vertical(spacing: 8)
+    appearance.addArrangedSubview(sectionTitle(.appearance))
     showDate = checkbox(.showDate, value: draft.value.appearance.showTargetDate, id: "showDate")
     showNext = checkbox(.showNext, value: draft.value.appearance.showNextTarget, id: "showNext")
     move = checkbox(.move, value: draft.value.appearance.moveContent, id: "moveContent")
-    root.addArrangedSubview(NSStackView(views: [showDate, showNext, move]))
-    saveButton = button(.save, action: #selector(savePressed), id: "save")
-    saveButton.keyEquivalent = "\r"
+    appearance.addArrangedSubview(NSStackView(views: [showDate, showNext]))
+    appearance.addArrangedSubview(move)
+    preferences.addArrangedSubview(appearance)
+    let preferencesCard = card(preferences)
+    root.addArrangedSubview(preferencesCard)
+    let footer = NSStackView()
+    footer.orientation = .horizontal
+    footer.spacing = 10
+    if loadError != nil {
+      footer.addArrangedSubview(button(.repair, action: #selector(repairPressed), id: "repair"))
+    }
+    let spacer = NSView()
+    spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+    footer.addArrangedSubview(spacer)
     let cancel = button(.cancel, action: #selector(cancelPressed), id: "cancel")
     cancel.keyEquivalent = "\u{1b}"
-    var footer: [NSView] = [cancel, saveButton]
-    if loadError != nil {
-      footer.insert(button(.repair, action: #selector(repairPressed), id: "repair"), at: 0)
-    }
-    root.addArrangedSubview(NSStackView(views: footer))
+    saveButton = button(.save, action: #selector(savePressed), id: "save")
+    saveButton.keyEquivalent = "\r"
+    footer.addArrangedSubview(cancel)
+    footer.addArrangedSubview(saveButton)
+    root.addArrangedSubview(footer)
     let content = (window?.contentView as? SettingsBackgroundView) ?? SettingsBackgroundView()
     content.subviews.forEach { $0.removeFromSuperview() }
     if window?.contentView !== content { window?.contentView = content }
@@ -178,31 +231,72 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
       root.leadingAnchor.constraint(equalTo: content.leadingAnchor),
       root.trailingAnchor.constraint(equalTo: content.trailingAnchor),
       root.topAnchor.constraint(equalTo: content.topAnchor),
-      root.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+      root.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor),
+      preferencesCard.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
+      footer.widthAnchor.constraint(equalTo: preferencesCard.widthAnchor),
     ])
     NSAccessibility.post(element: content, notification: .layoutChanged)
     refreshing = false
     populateEditor()
     reloadTable()
     updatePreview()
+    window?.layoutIfNeeded()
+    window?.display()
     previewTimer?.invalidate()
     previewTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       MainActor.assumeIsolated { self?.updatePreview() }
     }
   }
+  private func vertical(spacing: CGFloat) -> NSStackView {
+    let stack = NSStackView()
+    stack.orientation = .vertical
+    stack.alignment = .leading
+    stack.spacing = spacing
+    return stack
+  }
+  private func sectionTitle(_ key: TextKey) -> NSTextField {
+    let label = NSTextField(labelWithString: l.text(key))
+    label.font = .systemFont(ofSize: 12, weight: .semibold)
+    return label
+  }
+  private func card(_ stack: NSStackView) -> NSBox {
+    let box = NSBox()
+    box.boxType = .custom
+    box.borderColor = .separatorColor
+    box.borderWidth = 0.5
+    box.fillColor = .controlBackgroundColor
+    box.cornerRadius = 10
+    box.contentViewMargins = .zero
+    box.translatesAutoresizingMaskIntoConstraints = false
+    let container = NSView()
+    box.contentView = container
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+      stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+      stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+      stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
+    ])
+    return box
+  }
   private func field(id: String) -> NSTextField {
     let result = NSTextField()
     result.delegate = self
+    result.font = .systemFont(ofSize: 13)
+    if id != "title" { result.alignment = .center }
     result.setAccessibilityIdentifier(id)
     result.translatesAutoresizingMaskIntoConstraints = false
-    result.widthAnchor.constraint(equalToConstant: id == "title" ? 360 : id == "year" ? 66 : 40)
+    result.widthAnchor.constraint(equalToConstant: id == "title" ? 432 : id == "year" ? 76 : 48)
       .isActive = true
     return result
   }
   private func row(_ key: TextKey, _ views: [NSView]) -> NSStackView {
     let label = NSTextField(labelWithString: l.text(key))
     label.translatesAutoresizingMaskIntoConstraints = false
-    label.widthAnchor.constraint(equalToConstant: 90).isActive = true
+    label.widthAnchor.constraint(equalToConstant: 96).isActive = true
+    label.textColor = .secondaryLabelColor
+    label.font = .systemFont(ofSize: 12)
     let result = NSStackView(views: [label] + views)
     result.orientation = .horizontal
     result.spacing = 6
@@ -219,8 +313,10 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     result.action = action
     result.setAccessibilityIdentifier(id)
     result.translatesAutoresizingMaskIntoConstraints = false
-    result.widthAnchor.constraint(lessThanOrEqualToConstant: id == "timeZone" ? 340 : 180)
-      .isActive = true
+    result.widthAnchor.constraint(
+      lessThanOrEqualToConstant: id == "timeZone" ? 432 : id == "occurrence" ? 260 : 180
+    )
+    .isActive = true
     return result
   }
   private func checkbox(_ key: TextKey, value: Bool, id: String) -> NSButton {
@@ -239,6 +335,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     ]
     controls.forEach { $0.isEnabled = event != nil && loadError == nil }
     guard let event else {
+      occurrenceRow.isHidden = true
       titleField.stringValue = ""
       yearField.stringValue = ""
       monthPicker.removeAllItems()
@@ -309,8 +406,10 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
       occurrencePicker.selectItem(
         at: input.repeatedTimeChoice == .first ? 1 : input.repeatedTimeChoice == .second ? 2 : 0)
       occurrencePicker.isEnabled = true
+      occurrenceRow.isHidden = false
     } else {
       occurrencePicker.isEnabled = false
+      occurrenceRow.isHidden = true
     }
   }
   public func numberOfRows(in tableView: NSTableView) -> Int { draft.value.events.count }
@@ -320,19 +419,41 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     let events = draft.value.sortedEvents
     guard events.indices.contains(row) else { return nil }
     let e = events[row]
-    let label = NSTextField(wrappingLabelWithString: "")
-    label.stringValue =
-      l.title(e, position: row + 1) + "\n" + l.date(e) + " · "
-      + l.text(e.resolvedTimestamp > Date().timeIntervalSince1970 ? .upcoming : .expired)
-    label.font = .systemFont(ofSize: 11)
-    label.maximumNumberOfLines = 3
-    return label
+    let cell = NSTableCellView()
+    let name = NSTextField(labelWithString: l.title(e, position: row + 1))
+    name.font = .systemFont(ofSize: 12, weight: .medium)
+    name.lineBreakMode = .byTruncatingTail
+    cell.textField = name
+    let date = NSTextField(labelWithString: l.gregorianDate(e).components(separatedBy: " · ")[0])
+    date.font = .systemFont(ofSize: 10)
+    date.textColor = .secondaryLabelColor
+    date.lineBreakMode = .byTruncatingTail
+    let status = NSTextField(
+      labelWithString: l.text(e.input.calendar == .chinese ? .lunar : .gregorian)
+        + " · " + l.text(e.resolvedTimestamp > Date().timeIntervalSince1970 ? .upcoming : .expired))
+    status.font = .systemFont(ofSize: 10)
+    status.textColor = .secondaryLabelColor
+    let stack = vertical(spacing: 4)
+    for label in [name, date, status] {
+      label.translatesAutoresizingMaskIntoConstraints = false
+      stack.addArrangedSubview(label)
+      label.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    cell.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
+      stack.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8),
+      stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+    ])
+    return cell
   }
   public func tableViewSelectionDidChange(_ notification: Notification) {
     guard !refreshing else { return }
     let events = draft.value.sortedEvents
     selectedID = events.indices.contains(table.selectedRow) ? events[table.selectedRow].id : nil
     pendingFormError = nil
+    calendarConverted = false
     invalidText = [:]
     populateEditor()
     updatePreview()
@@ -352,6 +473,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   public func controlTextDidChange(_ obj: Notification) { dateChanged() }
   @objc private func dateChanged() {
     guard !refreshing, let event else { return }
+    calendarConverted = false
     var input = event.input
     invalidText = [:]
     for (key, field) in [
@@ -390,6 +512,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     do {
       try draft.switchCalendar(
         id: id, to: calendarPicker.indexOfSelectedItem == 0 ? .gregorian : .chinese)
+      calendarConverted = true
       pendingFormError = nil
     } catch { pendingFormError = error }
     populateEditor()
@@ -399,6 +522,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
   @objc public func addEvent() {
     do {
       selectedID = try draft.add()
+      calendarConverted = false
       pendingFormError = nil
       invalidText = [:]
       buildWindow()
@@ -411,6 +535,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     if let id = selectedID { draft.delete(id: id) }
     selectedID = draft.value.sortedEvents.first?.id
     pendingFormError = nil
+    calendarConverted = false
     invalidText = [:]
     buildWindow()
   }
@@ -430,8 +555,13 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     let error = loadError ?? pendingFormError ?? validationError()
     errorLabel.stringValue =
       error.map { l.error($0) }
+      ?? (calendarConverted ? l.text(.converted) : nil)
       ?? (event.map { $0.resolvedTimestamp <= Date().timeIntervalSince1970 ? l.text(.past) : "" }
         ?? "")
+    errorLabel.textColor =
+      error != nil ? .systemOrange : calendarConverted ? .systemGreen : .secondaryLabelColor
+    errorLabel.isHidden = errorLabel.stringValue.isEmpty
+    equivalentLabel.isHidden = event?.input.calendar != .chinese
     saveButton.isEnabled = error == nil
     equivalentLabel.stringValue = event.map { l.text(.equivalent, l.gregorianDate($0)) } ?? ""
   }
@@ -451,6 +581,7 @@ public final class ConfigurationWindowController: NSWindowController, NSTableVie
     // Replacement is an explicit user action; opening damaged settings never overwrites data.
     loadError = nil
     pendingFormError = nil
+    calendarConverted = false
     draft = DraftConfiguration(Configuration())
     selectedID = nil
     buildWindow()

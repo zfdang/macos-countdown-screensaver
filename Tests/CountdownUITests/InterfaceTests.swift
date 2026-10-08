@@ -147,11 +147,20 @@ final class InterfaceTests: XCTestCase {
       select(calendar, 1)
       XCTAssertEqual(c.draft.value.events[0].input.calendar, .chinese)
       XCTAssertEqual(c.draft.value.events[0].resolvedTimestamp, before)
+      let status: NSTextField = find("status", in: c.window!.contentView!)
+      XCTAssertEqual(
+        status.stringValue,
+        Localization(preference: c.draft.value.languagePreference).text(.converted))
       let language: NSPopUpButton = find("language", in: c.window!.contentView!)
       select(language, 2)
       let month: NSPopUpButton = find("month", in: c.window!.contentView!)
       XCTAssertTrue(month.itemTitles.contains("正月"))
       XCTAssertTrue(month.itemTitles.contains("腊月"))
+      let converted: NSTextField = find("status", in: c.window!.contentView!)
+      XCTAssertEqual(converted.stringValue, "已转换历法，目标时刻不变。")
+      edit("hour", "12", c)
+      XCTAssertFalse(converted.stringValue.contains("已转换"))
+      XCTAssertTrue(CountdownContentView().isOpaque)
       c.cancelPressed()
     }
   }
