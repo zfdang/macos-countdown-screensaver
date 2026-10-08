@@ -1,0 +1,92 @@
+name: Test and build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: ${{ matrix.arch }} tests and build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Unit tests with coverage
+        run: swift test --enable-code-coverage
+      - name: Verify build-version tests
+        run: python3 -m unittest discover -s Tests/BuildTests -v
+      - name: Build and package
+        run: scripts/build.sh ${{ matrix.arch }}
+      - name: Bundle acceptance
+        run: scripts/acceptance.sh ${{ matrix.arch }}
+      - name: Upload distributables
+        uses: actions/upload-artifact@v4
+        with:
+          name: countdown-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error
+      - name: Upload acceptance screenshots and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-${{ matrix.arch }}
+          include-hidden-files: true
+          path: |
+            .acceptance/
+            .build/debug/codecov/
+
+  release:
+    name: Publish main build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: countdown-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish versioned build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python3 scripts/version.py | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')
+          (cd release-assets && sha256sum ./*.zip > SHA256SUMS.txt)
+          cat > release-notes.md <<'NOTES'
+          Native macOS countdown screen saver and preview app for Apple Silicon (arm64) and Intel (x86_64).
+
+          Download the saver ZIP matching your Mac, unzip, and double-click Countdown.saver. See the bilingual README for configuration and local build instructions.
+
+          These builds use ad-hoc signing, not Developer ID notarization. Full Git SHA and version metadata are included in build-info.json.
+          NOTES
+          if gh release view "v$version" >/dev/null 2>&1; then
+            gh release upload "v$version" release-assets/* --clobber
+          else
+            gh release create "v$version" release-assets/* --target "$GITHUB_SHA" --title "Countdown $version" --notes-file release-notes.md
+          fi
