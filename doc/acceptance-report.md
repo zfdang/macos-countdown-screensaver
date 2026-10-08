@@ -49,3 +49,15 @@ Settings use a scrollable body and a fixed bottom action bar. Initial dimensions
 Countdown unit labels are larger, brighter, and separated from digits by an explicit gap. Compact rows reserve enough height to avoid overlap. The language-specific README screenshots are actual deterministic renders of this implementation. `README.md` is English by default, links to `README.zh-CN.md`, and both files show their respective screenshot near the top. Both README files and their screenshots are included in bundle resources.
 
 Local regression verification for this follow-up: 63 Swift tests and three Python tests passed. Packaged ARM and Intel close/lifecycle acceptance, architecture/plist/signature checks, and screenshot rendering passed. README navigation/image/document links were checked against the repository files.
+
+## Rendering and Settings Maintenance
+
+Rendering now compares typed value snapshots instead of Swift reflection strings. Snapshots include the resolved display language, localized error, configuration, countdown state, preview mode, and active movement step. Fixed previews and stationary content avoid redraws caused solely by elapsed minutes. Gregorian date formatters use a bounded, locked cache keyed by locale, zone, and format, with concurrent mixed-format/zone regression coverage.
+
+Fallback preferences polling runs once per minute. Unchanged raw data reuses its validated configuration, including a stable identity for empty settings. Changed or damaged data is still validated, and save notifications, startup, and wake refresh immediately. Tests cover polling frequency, actual distributed save notification delivery, wake handling, and an independent `/usr/bin/defaults` writer. `UserDefaults.synchronize()` is removed; macOS persists defaults asynchronously, while immediate readback verifies the value visible to the writing instance rather than promising a synchronous disk flush.
+
+The settings controller's timer cleanup is owned by a separate locked timer lifetime object, whose deinitializer does not access actor-isolated UI properties. The lifetime and formatter helpers type-check in Swift 6 strict-concurrency mode; this is not a claim that the entire application has migrated to Swift 6. Timer replacement/release and the existing settings/preview closure checks cover cleanup.
+
+The time-zone selector provides localized search and pins the selected/current/common zones without modifying drafts during search. Regression tests cover city-name search, selection changes, unmatched queries, clearing, and duplicate removal. Preview bundle names now distinguish `Countdown Preview` from `Countdown`; version dates use `Asia/Shanghai` (UTC+8). Lunar-year lookup uses supported-range/month boundaries instead of a special case for 2101; existing exhaustive and upper-boundary tests remain applicable. Saved timestamp limits are named and documented as 1901-01-01 through 9999-12-31 UTC.
+
+Local regression verification: 74 Swift tests and three Python tests passed. See [build-and-release.md](build-and-release.md) for Intel runner lifecycle sources and migration options.

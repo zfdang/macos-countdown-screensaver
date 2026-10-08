@@ -35,6 +35,7 @@ class PackageTests(unittest.TestCase):
                 with self.subTest(bundle=bundle):
                     contents = root / bundle / 'Contents'
                     info = plistlib.loads((contents / 'Info.plist').read_bytes())
+                    self.assertEqual(info['CFBundleName'], 'Countdown Preview' if bundle.endswith('.app') else 'Countdown')
                     self.assertEqual(info['CountdownReleaseVersion'], metadata['version'])
                     self.assertEqual(info['CFBundleShortVersionString'], '26.10.8')
                     self.assertEqual(info['CFBundleVersion'], '5')

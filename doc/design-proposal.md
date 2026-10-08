@@ -45,6 +45,8 @@ Project design documents are written in English. The README defaults to English 
 - Support configuration changes across processes; process-local notifications alone are insufficient.
 - Manage view lifecycle without terminating the system host, and verify compatibility in the actual host.
 - Reset stopped state and reload configuration on every start.
+- Compare structured render snapshots using value equality, and cache Gregorian date formatters by locale, time zone, and format under a lock.
+- Use a 60-second fallback preferences poll; unchanged raw snapshots reuse their validated configuration. Save notifications, startup, and wake refresh immediately.
 
 ## 3. Screen Design
 
@@ -100,6 +102,8 @@ To reduce prolonged fixed placement, move the content block slightly every 60 se
 ### 4.1 Window Layout
 
 Use a native configuration sheet, initially around 820×560 pt, adapted to smaller screens. Place the event list on the left, the selected-event editor and small preview on the right, and general preferences plus Cancel/Save below.
+
+Time-zone selection provides a localized search field, matching identifiers and city names with spaces or underscores. The selected zone stays available while filtering; current/common zones are pinned before the remaining matches. Searching alone never changes an event's time zone or target instant.
 
 ```text
 +------------------------ Countdown Settings ------------------------+

@@ -13,7 +13,7 @@ for bundle, executable, identifier, package in [
     info = {
         'CFBundleDevelopmentRegion': 'en', 'CFBundleLocalizations': ['en', 'zh-Hans'],
         'CFBundleExecutable': executable, 'CFBundleIdentifier': identifier,
-        'CFBundleInfoDictionaryVersion': '6.0', 'CFBundleName': 'Countdown',
+        'CFBundleInfoDictionaryVersion': '6.0', 'CFBundleName': 'Countdown Preview' if package == 'APPL' else 'Countdown',
         'CFBundlePackageType': package, 'CFBundleShortVersionString': metadata['bundleVersion'],
         'CountdownReleaseVersion': metadata['version'], 'CFBundleIconFile': 'Countdown.icns',
         'CFBundleVersion': metadata['build'], 'LSMinimumSystemVersion': '13.0',

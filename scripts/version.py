@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Version = latest commit's Singapore date + total commits reachable from HEAD."""
+"""Version = latest commit's Shanghai date + total commits reachable from HEAD."""
 import datetime
 import json
 import subprocess
@@ -13,7 +13,7 @@ def metadata():
         raise SystemExit('Versioning requires full Git history (fetch-depth: 0).')
     count = int(git('rev-list', '--count', 'HEAD'))
     timestamp = int(git('show', '-s', '--format=%ct', 'HEAD'))
-    date = datetime.datetime.fromtimestamp(timestamp, ZoneInfo('Asia/Singapore')).strftime('%y.%m.%d')
+    date = datetime.datetime.fromtimestamp(timestamp, ZoneInfo('Asia/Shanghai')).strftime('%y.%m.%d')
     return {'version': f'v{date}-{count}', 'bundleVersion': '.'.join(str(int(part)) for part in date.split('.')), 'build': str(count), 'commit': git('rev-parse', 'HEAD'), 'date': date}
 
 if __name__ == '__main__':

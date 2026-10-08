@@ -20,24 +20,38 @@ public enum SystemLanguages {
   public private(set) var state: CountdownState = .empty
   private var engine = CountdownEngine()
   private var lastUptime: TimeInterval = 0
-  private var lastRenderKey = ""
+  private struct RenderSnapshot: Equatable {
+    let state: CountdownState
+    let configuration: Configuration
+    let language: UILanguage
+    let preview: Bool
+    let movementStep: Int?
+    let errorMessage: String?
+  }
+  private var lastRenderSnapshot: RenderSnapshot?
   public override var isFlipped: Bool { true }
   public override var isOpaque: Bool { true }
   public func reset() {
     engine.reset()
-    lastRenderKey = ""
+    lastRenderSnapshot = nil
   }
-  public func update(
+  @discardableResult public func update(
     now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime
-  ) {
+  ) -> Bool {
     state = engine.tick(configuration: configuration, now: now, uptime: uptime)
     lastUptime = uptime
-    let key =
-      "\(state)-\(configuration)-\(preferredLanguages)-\(Int(uptime / 60))-\(String(describing: configurationError))"
-    if key != lastRenderKey {
+    let l = Localization(
+      preference: configuration.languagePreference, preferredLanguages: preferredLanguages)
+    let snapshot = RenderSnapshot(
+      state: state, configuration: configuration, language: l.language, preview: previewMode,
+      movementStep: configuration.appearance.moveContent && !previewMode ? Int(uptime / 60) : nil,
+      errorMessage: configurationError.map { l.error($0) })
+    if snapshot != lastRenderSnapshot {
       needsDisplay = true
-      lastRenderKey = key
+      lastRenderSnapshot = snapshot
+      return true
     }
+    return false
   }
   public override func draw(_ dirtyRect: NSRect) {
     NSColor.black.setFill()

@@ -141,12 +141,10 @@ public final class CalendarConversionService {
     if type == .chinese {
       let mappingDate = mappingCalendar.date(
         from: DateComponents(year: c.year, month: c.month, day: c.day, hour: 12))!
-      var year = c.year!
-      if year == 2101 {
-        year = 2100
-      } else if let first = try? lunarMonths(in: year).first, mappingDate < first.start {
-        year -= 1
-      }
+      // A lunar year begins within its Gregorian year and may end in the next one.
+      // Clamp the candidate to the supported range, then check actual month boundaries below.
+      var year = min(c.year!, Self.lunarYears.upperBound)
+      if let first = try lunarMonths(in: year).first, mappingDate < first.start { year -= 1 }
       guard Self.lunarYears.contains(year) else { throw CountdownError.lunarRange }
       let months = try lunarMonths(in: year)
       guard let month = months.last(where: { $0.start <= mappingDate }),

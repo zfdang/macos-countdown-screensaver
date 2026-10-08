@@ -66,6 +66,9 @@ public struct AppearanceSettings: Codable, Equatable {
 
 public struct Configuration: Codable, Equatable {
   public static let currentVersion = 1
+  // 1901-01-01 00:00:00 through 9999-12-31 23:59:59 UTC; bounds for saved absolute instants.
+  private static let supportedTimestamps: ClosedRange<TimeInterval> =
+    -2_177_452_800...253_402_300_799
   public var schemaVersion = currentVersion
   public var revision = UUID()
   public var languagePreference: LanguagePreference = .system
@@ -106,7 +109,7 @@ public struct Configuration: Codable, Equatable {
       guard event.title.count <= 40 else { throw CountdownError.longTitle }
       guard event.createdOrder >= 0, event.createdOrder < Int.max,
         event.resolvedTimestamp.isFinite,
-        (-2_177_452_800...253_402_300_799).contains(event.resolvedTimestamp)
+        Self.supportedTimestamps.contains(event.resolvedTimestamp)
       else {
         throw CountdownError.invalidConfiguration
       }

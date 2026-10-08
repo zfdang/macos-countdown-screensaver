@@ -8,7 +8,11 @@ import XCTest
 private final class TestBackend: ConfigurationBackend {
   var data: Data?
   var fail = false
-  func read() -> Data? { data }
+  var reads = 0
+  func read() -> Data? {
+    reads += 1
+    return data
+  }
   func write(_ data: Data) throws {
     if fail { throw CountdownError.saveFailed }
     self.data = data
@@ -16,6 +20,114 @@ private final class TestBackend: ConfigurationBackend {
 }
 
 final class InterfaceTests: XCTestCase {
+  func testRenderInvalidationUsesVisibleValuesAndMovement() async {
+    await MainActor.run {
+      let view = CountdownContentView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+      let now = Date(timeIntervalSince1970: 100)
+      view.configuration.appearance.moveContent = false
+      view.preferredLanguages = ["en"]
+      XCTAssertTrue(view.update(now: now, uptime: 0))
+      XCTAssertFalse(view.update(now: now, uptime: 60))
+      view.preferredLanguages = ["fr"]
+      XCTAssertFalse(view.update(now: now, uptime: 60))
+      view.preferredLanguages = ["zh"]
+      XCTAssertTrue(view.update(now: now, uptime: 60))
+      view.configurationError = CountdownError.invalidConfiguration
+      XCTAssertTrue(view.update(now: now, uptime: 60))
+      view.configurationError = CountdownError.saveFailed
+      XCTAssertTrue(view.update(now: now, uptime: 60))
+      view.configurationError = nil
+      view.configuration.appearance.moveContent = true
+      XCTAssertTrue(view.update(now: now, uptime: 60))
+      XCTAssertFalse(view.update(now: now, uptime: 119))
+      XCTAssertTrue(view.update(now: now, uptime: 120))
+      view.previewMode = true
+      XCTAssertTrue(view.update(now: now, uptime: 120))
+      XCTAssertFalse(view.update(now: now, uptime: 180))
+      view.reset()
+      XCTAssertTrue(view.update(now: now, uptime: 180))
+    }
+  }
+  @MainActor func testFallbackPollIsInfrequentAndNotificationsRefreshImmediately() async throws {
+    _ = NSApplication.shared
+    let backend = TestBackend()
+    let store = ConfigurationStore(backend: backend)
+    let saver = try XCTUnwrap(
+      CountdownScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 800, height: 600), isPreview: false, store: store))
+    saver.startAnimation()
+    let now = Date(timeIntervalSince1970: 100)
+    saver.reloadConfiguration(now: now, uptime: 0)
+    let reads = backend.reads
+    let revision = saver.content.configuration.revision
+    for second in 1..<60 { saver.advanceFrame(now: now, uptime: Double(second)) }
+    XCTAssertEqual(backend.reads, reads)
+    saver.advanceFrame(now: now, uptime: 60)
+    XCTAssertEqual(backend.reads, reads + 1)
+    XCTAssertEqual(saver.content.configuration.revision, revision)
+    var updated = Configuration()
+    updated.languagePreference = .zhHans
+    let saved = try ConfigurationStore(backend: backend).save(updated)
+    DistributedNotificationCenter.default().postNotificationName(
+      CountdownScreenSaverView.configurationChanged, object: nil, userInfo: nil,
+      deliverImmediately: true)
+    let deadline = Date().addingTimeInterval(2)
+    while saver.content.configuration != saved && Date() < deadline {
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    XCTAssertEqual(saver.content.configuration, saved)
+    let readsAfterSave = backend.reads
+    NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+    XCTAssertEqual(backend.reads, readsAfterSave + 1)
+    saver.stopAnimation()
+  }
+  func testTimeZoneSearchKeepsDraftAndSelectionWhileFiltering() async {
+    await MainActor.run {
+      for query in ["new york", "America/New_York", " AMERICA/NEW YORK "] {
+        XCTAssertEqual(
+          ConfigurationWindowController.timeZoneIdentifiers(
+            matching: query, selected: "UTC", current: "UTC"),
+          ["UTC", "America/New_York"])
+      }
+      let c = controller()
+      c.addEvent()
+      let original = c.draft.value
+      let selected = original.events[0].input.timeZoneIdentifier
+      let search: NSSearchField = find("searchTimeZones", in: c.window!.contentView!)
+      let picker: NSPopUpButton = find("timeZone", in: c.window!.contentView!)
+      XCTAssertEqual(picker.itemTitles.first, selected)
+      XCTAssertTrue(picker.itemTitles.contains("UTC"))
+      search.stringValue = "new york"
+      c.controlTextDidChange(
+        Notification(name: NSControl.textDidChangeNotification, object: search))
+      XCTAssertEqual(Set(picker.itemTitles), Set([selected, "America/New_York"]))
+      XCTAssertEqual(c.draft.value, original)
+      select(picker, picker.indexOfItem(withTitle: "America/New_York"))
+      XCTAssertEqual(c.draft.value.events[0].input.timeZoneIdentifier, "America/New_York")
+      search.stringValue = "no such time zone"
+      c.controlTextDidChange(
+        Notification(name: NSControl.textDidChangeNotification, object: search))
+      XCTAssertEqual(picker.itemTitles, ["America/New_York"])
+      search.stringValue = ""
+      c.controlTextDidChange(
+        Notification(name: NSControl.textDidChangeNotification, object: search))
+      XCTAssertGreaterThan(picker.numberOfItems, 400)
+      XCTAssertEqual(picker.itemTitles.count, Set(picker.itemTitles).count)
+      XCTAssertEqual(picker.titleOfSelectedItem, "America/New_York")
+      c.cancelPressed()
+    }
+  }
+  func testTimerOwnerInvalidatesReplacementAndOnRelease() {
+    var owner: TimerLifetime? = TimerLifetime()
+    let first = Timer(timeInterval: 1, repeats: true) { _ in }
+    let second = Timer(timeInterval: 1, repeats: true) { _ in }
+    owner?.replace(with: first)
+    owner?.replace(with: second)
+    XCTAssertFalse(first.isValid)
+    XCTAssertTrue(second.isValid)
+    owner = nil
+    XCTAssertFalse(second.isValid)
+  }
   @MainActor private func find<T: NSView>(
     _ identifier: String, in view: NSView, as: T.Type = T.self
   ) -> T {

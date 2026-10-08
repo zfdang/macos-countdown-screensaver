@@ -3,6 +3,32 @@ import XCTest
 @testable import CountdownCore
 
 final class LocalizationTests: XCTestCase {
+  func testSharedFormattersKeepLanguageAndZoneIndependent() {
+    let event = CountdownEvent(
+      createdOrder: 0, input: DateInput(year: 2027, month: 1, day: 1, timeZoneIdentifier: "UTC"),
+      resolvedTimestamp: 1_798_761_600)
+    for _ in 0..<20 {
+      var shanghai = event
+      shanghai.input.timeZoneIdentifier = "Asia/Shanghai"
+      let en = Localization(preference: .en)
+      let zh = Localization(preference: .zhHans)
+      XCTAssertEqual(en.gregorianDate(event), "Jan 1, 2027 00:00:00 · UTC")
+      XCTAssertEqual(zh.gregorianDate(shanghai), "2027年01月01日 08:00:00 · Asia/Shanghai")
+      XCTAssertEqual(zh.gregorianDate(event), "2027年01月01日 00:00:00 · UTC")
+      XCTAssertEqual(en.gregorianDate(shanghai), "Jan 1, 2027 08:00:00 · Asia/Shanghai")
+    }
+  }
+  func testFormatterCacheSupportsConcurrentDistinctFormatsAndZones() {
+    let cache = DateFormatterCache()
+    DispatchQueue.concurrentPerform(iterations: 100) { index in
+      let utc = index.isMultiple(of: 2)
+      let text = cache.string(
+        from: Date(timeIntervalSince1970: 1_798_761_600), locale: Locale(identifier: "en_US_POSIX"),
+        zone: utc ? "UTC" : "Asia/Shanghai",
+        format: utc ? "yyyy-MM-dd HH:mm:ss" : "HH:mm yyyy-MM-dd")
+      XCTAssertEqual(text, utc ? "2027-01-01 00:00:00" : "08:00 2027-01-01")
+    }
+  }
   func testSystemChineseVariantsAndOtherLanguages() {
     for tag in ["zh", "zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh-HK", "ZH_hant_TW"] {
       XCTAssertEqual(
