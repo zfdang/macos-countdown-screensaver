@@ -47,7 +47,7 @@ for year in range(1901, 2101):
             leap = month
         lengths.append(str(length))
     first_date = months[0][0]
-    records.append(f'        ({first_date.month}, {first_date.day}, {leap}, "{",".join(lengths)}"), // {year}')
+    records.append(f'    ({first_date.month}, {first_date.day}, {leap}, "{",".join(lengths)}"),  // {year}')
 source = '''// Generated civil-date facts, not an astronomical algorithm.
 // Source: Hong Kong Observatory Gregorian-Lunar Calendar Conversion Tables, 1901–2100.
 // https://www.hko.gov.hk/en/gts/time/conversion.htm
@@ -55,8 +55,8 @@ source = '''// Generated civil-date facts, not an astronomical algorithm.
 import Foundation
 
 enum LunarTable {
-    // Gregorian New Year month/day, leap month (0 if none), sequential month lengths.
-    static let years: [(Int, Int, Int, String)] = [
-''' + '\n'.join(records) + '\n    ]\n}\n'
+  // Gregorian New Year month/day, leap month (0 if none), sequential month lengths.
+  static let years: [(Int, Int, Int, String)] = [
+''' + '\n'.join(records) + '\n  ]\n}\n'
 (ROOT / 'Sources/CountdownCore/LunarTable.swift').write_text(source)
 print(f'Generated {len(records)} lunar years from HKO month boundaries')
