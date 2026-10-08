@@ -22,6 +22,8 @@
 
 在 [Releases](https://github.com/zfdang/macos-countdown-screensaver/releases) 下载对应 **arm64（Apple Silicon）** 或 **x86_64（Intel）** 的屏保 ZIP，解压后双击 `Countdown.saver` 安装；也可以复制到 `~/Library/Screen Savers/`。在“系统设置 → 屏幕保护程序”中选择 Countdown，通过“选项”设置目标、语言和外观。
 
+**升级后“选项”没有反应？** 替换 `Countdown.saver` 前，请先用 **⌘Q** 完全退出系统设置，再重新打开“系统设置 → 屏幕保护程序”，点击“选项”。只关闭窗口可能让屏保宿主继续使用已加载的旧版本。在 macOS 15.8 上，完整退出并重新打开系统设置即可恢复，已保存的目标不会改变。如仍无法打开，请重启 Mac 后再试。
+
 当前构建使用临时代码签名，尚未经过 Apple 公证，macOS 可能要求在“隐私与安全性”中批准。编译最低目标系统为 macOS 13；本地宿主验收在 macOS 15.8 上完成，具体验证范围见验收报告。
 
 预览 ZIP 中提供 `Countdown Preview.app`，无需启动系统屏保即可查看相同界面并设置目标；它与屏保共享配置。

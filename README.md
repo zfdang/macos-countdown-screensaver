@@ -22,6 +22,8 @@ A native macOS screen saver with a minimal black-background design, displaying c
 
 Download the saver ZIP for **arm64 (Apple Silicon)** or **x86_64 (Intel)** from [Releases](https://github.com/zfdang/macos-countdown-screensaver/releases), unzip it, and double-click `Countdown.saver` to install. Alternatively, copy the bundle into `~/Library/Screen Savers/`. In System Settings → Screen Saver, choose Countdown and open Options to configure targets, language, and appearance.
 
+**Updating or Options not opening?** Quit System Settings completely with **⌘Q** before replacing `Countdown.saver`, then reopen System Settings → Screen Saver and click Options. Merely closing the settings window can leave the screen saver host running with the previous bundle loaded. Restarting System Settings restored Options on macOS 15.8 without changing saved targets. If it still does not open, restart your Mac and try again.
+
 Current builds use ad-hoc signatures and are not Apple-notarized. macOS may require approval in Privacy & Security. The deployment target is macOS 13; local host acceptance was performed on macOS 15.8. See the acceptance report for the exact verification scope.
 
 The preview ZIP contains `Countdown Preview.app`, which provides the same rendering and settings without starting a system screen saver. It shares settings with the saver.
