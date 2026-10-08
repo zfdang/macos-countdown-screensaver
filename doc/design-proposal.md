@@ -1,12 +1,12 @@
 # macOS Multi-Event Countdown Screen Saver Design Proposal
 
-Version: v1.1 draft
+Version: v1.2 implementation baseline
 
 Date: 2026-10-08
 
 Reference project: `/Users/zfdang/workspaces/Countdown`
 
-Scope: Product behavior, UI, date rules, architecture, and acceptance criteria. Application implementation is outside this documentation phase.
+Scope: Product behavior, UI, date rules, architecture, and acceptance criteria. See build-and-release.md and acceptance-report.md for implementation and verification details.
 
 ## 1. Product Overview
 
@@ -201,17 +201,15 @@ Persist `isLeapMonth` independently; month number or list position alone cannot 
 
 ### 5.3 Conversion Strategy
 
-Prefer Foundation's Chinese calendar behind a dedicated service. Apple documents the [Chinese calendar identifier](https://developer.apple.com/documentation/foundation/calendar/identifier-swift.enum/chinese) and [DateComponents.isLeapMonth](https://developer.apple.com/documentation/foundation/datecomponents/isleapmonth). API availability does not establish the product's verified year range; boundary tests and authoritative date comparisons are required.
+Use the bundled Hong Kong Observatory civil-date table behind `CalendarConversionService`. Initial full-range tests exposed invalid day-zero results in Foundation's Chinese calendar on distant future boundaries, so the implementation follows the offline-table fallback anticipated by the original proposal. See [calendar-data.md](calendar-data.md) for sources, comparison with day-memory, and validation.
 
-1. Establish the lunar-to-Gregorian date mapping using Chinese civil dates in `Asia/Shanghai`, independently of the system time zone.
-2. Map the user-facing four-digit lunar year to Foundation's era/year representation. Do not directly assign the four-digit year to Chinese calendar `year`. Establish the lunar-year boundary and enumerate its month intervals.
-3. Resolve month number, leap-month flag, and day within that lunar year to a Gregorian date.
-4. Interpret that Gregorian date and entered time in the event's time zone to obtain an absolute timestamp.
-5. Reverse-check lunar components and the leap-month flag before allowing Save.
+1. Identify the selected lunar year, regular/leap month, and legal day using the table.
+2. Add the day offset to that month's Gregorian civil-date boundary using a UTC Gregorian calendar. This calculation is independent of system and event time zones.
+3. Interpret the resulting Gregorian date and the entered wall-clock time in the event's explicit time zone.
+4. Enumerate possible UTC offsets around that civil date and verify each candidate against the entered components. Reject missing times; require selection when two instants match.
+5. Verify conversion round trips through the same civil-date table.
 
-Separate lunar date mapping from event location: first obtain the Gregorian civil date using Chinese calendar rules, then interpret the entered wall-clock time in the event's zone. Display the full result so overseas users can confirm the target instant. The initial event zone remains the current system zone.
-
-If system conversion has unresolved discrepancies within the proposed range, evaluate an offline lunar table or library. Do not depend on online conversion or an unverified custom astronomical algorithm.
+All supported lunar dates are tested, with separate authoritative and day-memory fixtures. Runtime conversion, normal builds, and tests are offline. The lunar year range is 1901–2100, including the last month of 2100 that extends into Gregorian January 2101. Gregorian input supports 1901–9999.
 
 ### 5.4 Time Zones and DST
 
@@ -257,7 +255,7 @@ A simultaneous group completes together before advancement. Closely spaced but d
 | --- | --- |
 | Host integration | `ScreenSaver.framework` / `ScreenSaverView` |
 | Views and settings | Swift + AppKit with native layout constraints |
-| Date services | Foundation `Calendar`, `DateComponents`, and `TimeZone` |
+| Date services | Foundation Gregorian `Calendar`, `DateComponents`, `TimeZone`, and the offline lunar table |
 | Persistence | Module-specific `ScreenSaverDefaults` with versioned Codable data |
 | Localization | Explicit English and Simplified Chinese resources plus a shared language resolver |
 | Development preview | Standalone AppKit application sharing views and the countdown engine |
@@ -336,7 +334,7 @@ Validate count, fields, finite timestamps, zones, preference values, and schema 
 
 ### 7.5 Installation and Distribution
 
-Deliver a zipped `.saver` with English and Chinese installation instructions in the bilingual README. Recommend user-level installation in `~/Library/Screen Savers/` and configuration through System Settings. Plan Developer ID signing and notarization, validating the actual bundle and release process during implementation.
+Deliver a zipped `.saver` with English and Chinese installation instructions in the bilingual README. Recommend user-level installation in `~/Library/Screen Savers/` and configuration through System Settings. Verify ad-hoc signatures for current builds. Developer ID signing and notarization require project credentials and are not configured in the initial release workflow.
 
 No network access, calendar-reading permission, or persistent menu-bar application is required. Store event configuration locally.
 
@@ -388,7 +386,7 @@ Implement lunar-year mapping, month/leap-month selection, validity checks, local
 
 Finish multiple displays, content movement, auxiliary-text options, localized error states, and equivalent English/Chinese README installation instructions. Verify translation coverage, host compatibility, resource use, signing, and notarization.
 
-Deliver source code, an installable `.saver`, a development preview application, date/language rule tests, a bilingual README, English design documents, and a verified platform-support list.
+Deliver source code, an installable `.saver`, a development preview application, date/language rule tests, a bilingual README, English design documents, and an acceptance report stating verified platforms and remaining hardware-specific checks.
 
 ## 10. Future Extensions
 
