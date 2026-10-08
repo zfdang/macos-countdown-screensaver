@@ -30,10 +30,12 @@ import ScreenSaver
     configure(isPreview: false)
   }
   private func configure(isPreview: Bool) {
-    let defaults =
-      ScreenSaverDefaults(forModuleWithName: Self.preferencesDomain) ?? UserDefaults(
-        suiteName: Self.preferencesDomain)!
-    store = ConfigurationStore(backend: DefaultsBackend(defaults: defaults))
+    if let defaults = ScreenSaverDefaults(forModuleWithName: Self.preferencesDomain) {
+      store = ConfigurationStore(backend: ScreenSaverDefaultsBackend(defaults: defaults))
+    } else {
+      store = ConfigurationStore(
+        backend: DefaultsBackend(defaults: UserDefaults(suiteName: Self.preferencesDomain)!))
+    }
     animationTimeInterval = 1
     content.previewMode = isPreview
     content.frame = bounds

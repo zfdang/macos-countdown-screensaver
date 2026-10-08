@@ -106,11 +106,89 @@ import ScreenSaver
   withExtendedLifetime(delegate) { app.run() }
 }
 
+// Exercise the real ScreenSaverDefaults implementation across separately launched processes.
+@MainActor func runPreferencesWriter(domain: String, encoded: String) throws {
+  guard let data = Data(base64Encoded: encoded),
+    let defaults = ScreenSaverDefaults(forModuleWithName: domain)
+  else { throw CountdownError.invalidConfiguration }
+  let value = try JSONDecoder().decode(Configuration.self, from: data)
+  let saved = try ConfigurationStore(backend: ScreenSaverDefaultsBackend(defaults: defaults)).save(
+    value)
+  print(try JSONEncoder().encode(saved).base64EncodedString())
+}
+
+@MainActor func runPreferencesAcceptance() throws {
+  let domain = "com.zfdang.CountdownPreferencesAcceptance." + UUID().uuidString
+  let defaults = ScreenSaverDefaults(forModuleWithName: domain)!
+  defer {
+    defaults.removeObject(forKey: DefaultsBackend.dataKey)
+    _ = defaults.synchronize()
+  }
+  let store = ConfigurationStore(backend: ScreenSaverDefaultsBackend(defaults: defaults))
+  _ = try store.save(Configuration())
+  let saver = CountdownScreenSaverView(
+    frame: NSRect(x: 0, y: 0, width: 1000, height: 650), isPreview: false, store: store)!
+  saver.startAnimation()
+  saver.stopAnimation()
+  let draft = DraftConfiguration(Configuration())
+  let id = try draft.add(zone: "UTC")
+  try draft.update(
+    id: id, title: "Saved in another host",
+    input: DateInput(year: 2033, month: 12, day: 22, hour: 9, timeZoneIdentifier: "UTC"))
+  draft.setLanguage(.zhHans)
+  for index in 0..<2 {
+    var value = try draft.validated()
+    value.events[0].title += " \(index)"
+    value.events[0].input.minute = index
+    value.events[0].resolvedTimestamp = try CalendarConversionService().resolve(
+      value.events[0].input
+    ).timeIntervalSince1970
+    let writer = Process()
+    writer.executableURL = Bundle.main.executableURL!
+    writer.arguments = [
+      "--acceptance-write-preferences", domain,
+      try JSONEncoder().encode(value).base64EncodedString(),
+    ]
+    let pipe = Pipe()
+    writer.standardOutput = pipe
+    try writer.run()
+    let output = pipe.fileHandleForReading.readDataToEndOfFile()
+    writer.waitUntilExit()
+    precondition(writer.terminationStatus == 0, "Preferences writer failed")
+    let encoded = String(decoding: output, as: UTF8.self).trimmingCharacters(
+      in: .whitespacesAndNewlines)
+    guard let data = Data(base64Encoded: encoded) else { fatalError("Invalid writer output") }
+    let saved = try JSONDecoder().decode(Configuration.self, from: data)
+    if index == 0 { saver.startAnimation() } else { saver.reloadConfiguration() }
+    precondition(
+      saver.content.configuration == saved,
+      "Full-size saver must see another host's edited title, time and language")
+    saver.stopAnimation()
+  }
+  print("PASS: ScreenSaverDefaults save/flush and full-size restart/reload across processes")
+}
+
 @main enum PreviewMain {
   @MainActor static func main() {
     let app = NSApplication.shared
     app.setActivationPolicy(.regular)
-    if CommandLine.arguments.contains("--acceptance-close") {
+    if let index = CommandLine.arguments.firstIndex(of: "--acceptance-write-preferences") {
+      do {
+        guard CommandLine.arguments.count == index + 3 else {
+          throw CountdownError.invalidConfiguration
+        }
+        try runPreferencesWriter(
+          domain: CommandLine.arguments[index + 1], encoded: CommandLine.arguments[index + 2])
+      } catch {
+        fputs("Preferences writer failed: \(error)\n", stderr)
+        exit(1)
+      }
+    } else if CommandLine.arguments.contains("--acceptance-preferences") {
+      do { try runPreferencesAcceptance() } catch {
+        fputs("Preferences acceptance failed: \(error)\n", stderr)
+        exit(1)
+      }
+    } else if CommandLine.arguments.contains("--acceptance-close") {
       runCloseAcceptance(app)
     } else if CommandLine.arguments.contains("--acceptance") {
       do { try runAcceptance() } catch {

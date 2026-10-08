@@ -11,6 +11,7 @@ output=$(cd "$output" && pwd)
 root="$(pwd)/.build/distribution/$arch"
 "$root/Countdown Preview.app/Contents/MacOS/CountdownPreview" --acceptance --output "$output"
 "$root/Countdown Preview.app/Contents/MacOS/CountdownPreview" --acceptance-close
+"$root/Countdown Preview.app/Contents/MacOS/CountdownPreview" --acceptance-preferences
 xcrun swiftc -swift-version 5 -target "$arch-apple-macos13.0" -parse-as-library Tools/AcceptanceHost.swift -framework AppKit -framework ScreenSaver -o ".build/AcceptanceHost-$arch"
 ".build/AcceptanceHost-$arch" "$root/Countdown.saver" "$output"
 xcrun lipo "$root/Countdown.saver/Contents/MacOS/Countdown" -verify_arch "$arch"
