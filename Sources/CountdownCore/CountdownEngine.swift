@@ -98,7 +98,8 @@ public struct CountdownEngine {
       return .counting(
         groups[index], RemainingTime(target: groups[index].timestamp, now: timestamp), next: next)
     }
-    return .completed(configuration.sortedEvents.last!)
+    guard let last = configuration.sortedEvents.last else { return .empty }
+    return .completed(last)
   }
 }
 
@@ -118,5 +119,18 @@ public struct ContentLayout: Equatable {
     let step = floor(max(0, uptime) / 60)
     offsetX = move && !preview ? sin(step * 1.7) * w * 0.02 : 0
     offsetY = move && !preview ? cos(step * 1.7) * h * 0.02 : 0
+  }
+}
+
+// Footer rows collapse upward when optional content is hidden.
+public struct FooterLayout: Equatable {
+  public let dateY: Double?, positionY: Double?, nextY: Double?
+  public init(height: Double, compact: Bool, showDate: Bool, showNext: Bool) {
+    var cursor = compact ? 0.76 : 0.66
+    dateY = height >= 140 && showDate ? cursor : nil
+    if dateY != nil { cursor += 0.13 }
+    positionY = height >= 140 ? cursor : nil
+    if positionY != nil { cursor += 0.08 }
+    nextY = showNext ? cursor : nil
   }
 }

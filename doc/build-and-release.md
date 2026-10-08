@@ -27,15 +27,15 @@ Rosetta execution is not a substitute for native Intel hardware. CI runs tests a
 
 ## Version Definition
 
-The user-visible version is `YYYYMMDD.N`:
+The user-visible version is `vYY.MM.DD-N`:
 
-- `YYYYMMDD` is the latest commit's committer date in `Asia/Singapore`.
+- `YY.MM.DD` is the latest commit's committer date in `Asia/Singapore`.
 - `N` is `git rev-list --count HEAD`: all commits reachable from the build's HEAD, including merge commits.
 - Both CPU architectures use the same version for the same commit.
 - Rebuilding a commit retains its version; GitHub Actions run numbers are not used.
 - Shallow clones are rejected to prevent incorrect counts. CI checks out with `fetch-depth: 0`.
 
-For example, a commit dated October 8, 2026 with 42 reachable commits produces `20261008.42`. The Info.plist short version uses this value, the bundle build number uses `N`, and `build-info.json` contains the complete Git SHA.
+For example, a commit dated October 8, 2026 with 42 reachable commits produces `v26.10.08-42`. The release tag and archive names use this value. Info.plist stores the numeric date version (for example, `26.10.8`) in `CFBundleShortVersionString` and the full release version in `CountdownReleaseVersion`; the bundle build number uses `N`, and `build-info.json` contains the complete Git SHA.
 
 ## GitHub Actions
 
@@ -58,3 +58,13 @@ The repository builds with ad-hoc code signing and verifies the resulting signat
 The automated harness loads the actual `.saver` in a separate process that does not link CountdownUI, verifies the principal class and configure sheet, and checks start/stop/restart and independent view instances. It also renders English, Chinese, small, portrait, and tiny system-preview layouts.
 
 The actual macOS System Settings host must additionally be checked manually for configuration, saving, preview refresh, and full-screen operation. Full-screen testing can trigger the user's normal lock policy; unlocking remains a user action. Actual multi-monitor, sleep/wake, long-duration resource use, and older macOS behavior require their respective hardware/environment checks.
+
+## Application Icon
+
+Both bundles package `Assets/Countdown.icns` and declare `CFBundleIconFile`. The icon uses a dark rounded tile, a cyan countdown arc, and white clock hands. Its deterministic AppKit drawing source is `Tools/GenerateIcon.swift`; regeneration is optional and does not affect ordinary offline builds:
+
+```sh
+mkdir -p .build/Countdown.iconset
+swift Tools/GenerateIcon.swift .build/Countdown.iconset
+iconutil -c icns .build/Countdown.iconset -o Assets/Countdown.icns
+```

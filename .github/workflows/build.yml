@@ -85,8 +85,8 @@ jobs:
 
           These builds use ad-hoc signing, not Developer ID notarization. Full Git SHA and version metadata are included in build-info.json.
           NOTES
-          if gh release view "v$version" >/dev/null 2>&1; then
-            gh release upload "v$version" release-assets/* --clobber
+          if gh release view "$version" >/dev/null 2>&1; then
+            gh release upload "$version" release-assets/* --clobber
           else
-            gh release create "v$version" release-assets/* --target "$GITHUB_SHA" --title "Countdown $version" --notes-file release-notes.md
+            gh release create "$version" release-assets/* --target "$GITHUB_SHA" --title "Countdown $version" --notes-file release-notes.md
           fi

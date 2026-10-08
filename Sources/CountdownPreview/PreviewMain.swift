@@ -92,6 +92,27 @@ import ScreenSaver
     try bitmap.representation(using: .png, properties: [:])!.write(
       to: URL(fileURLWithPath: directory + "/" + name + ".png"))
   }
+  let suite = "com.zfdang.CountdownAcceptance." + UUID().uuidString
+  let defaults = UserDefaults(suiteName: suite)!
+  defer { defaults.removePersistentDomain(forName: suite) }
+  let store = ConfigurationStore(backend: DefaultsBackend(defaults: defaults))
+  for (name, language) in [
+    ("settings-english", LanguagePreference.en), ("settings-chinese", .zhHans),
+  ] {
+    configuration.languagePreference = language
+    try store.save(configuration)
+    let controller = ConfigurationWindowController(store: store)
+    let window = controller.window!
+    window.layoutIfNeeded()
+    let content = window.contentView!
+    content.layoutSubtreeIfNeeded()
+    window.display()
+    let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds)!
+    content.cacheDisplay(in: content.bounds, to: bitmap)
+    try bitmap.representation(using: .png, properties: [:])!.write(
+      to: URL(fileURLWithPath: directory + "/" + name + ".png"))
+    controller.cancelPressed()
+  }
   print("PASS: rendered English, Chinese, small and portrait countdown views")
 }
 

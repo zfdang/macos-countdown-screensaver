@@ -11,7 +11,7 @@ public enum TextKey: String, CaseIterable {
   case longTitle, invalidConfiguration, unsupportedVersion, saveFailed, past, first, second,
     occurrence
   case lunarMonth, leapMonth, lunarDay, converted, options, preview, repair, eventPosition,
-    additionalOne, additionalMany
+    additionalOne, additionalMany, targets, eventDetails, appearance, livePreview, settingsHint
 }
 
 public struct Localization {
@@ -68,6 +68,14 @@ public struct Localization {
     .first: ("First", "第一次"), .second: ("Second", "第二次"), .occurrence: ("Occurrence", "重复时刻"),
     .lunarMonth: ("Lunar Month %d", "%@"), .leapMonth: ("Leap Month %d", "闰%@"),
     .lunarDay: ("Day %d", "%@"),
+    .targets: ("Targets", "目标列表"),
+    .eventDetails: ("Date & time", "日期与时间"),
+    .appearance: ("Display preferences", "显示偏好"),
+    .livePreview: ("Live preview", "实时预览"),
+    .settingsHint: (
+      "Choose up to five moments. Countdown follows their chronological order.",
+      "最多设置五个目标，倒计时将按时间顺序自动切换。"
+    ),
     .converted: ("Calendar converted; the target instant is unchanged.", "已转换历法，目标时刻不变。"),
     .options: ("Options…", "选项…"), .preview: ("Countdown Preview", "倒计时预览"),
     .repair: ("Replace damaged configuration", "替换损坏的配置"),
