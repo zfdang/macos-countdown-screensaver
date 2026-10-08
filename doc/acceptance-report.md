@@ -7,7 +7,7 @@ Date: October 8, 2026. Platform: macOS 15.8, Apple Silicon, Xcode 26.3. Deployme
 - 60 Swift tests passed on arm64 and x86_64 (Intel execution through Rosetta on this machine).
 - Two Python tests passed for date/commit-count versioning and shallow-history rejection.
 - Production Swift code line coverage: 95.45%; region coverage: 90.57%. All core functions were exercised. Core calendar conversion line coverage is 98.29%.
-- Every valid lunar day in all 200 supported lunar years (1901–2100) was round-tripped through Gregorian conversion. Invalid day/month/leap-month combinations, supported boundaries, and independent HKO/reference fixtures were checked.
+- Every valid lunar day in all 200 supported lunar years (1901–2100) was round-tripped through Gregorian conversion. Invalid day/month/leap-month combinations, supported boundaries, and independent HKO conversion cases were checked.
 - Gregorian leap years, second precision, time zones, nonexistent DST times, repeated DST occurrences, a half-hour transition, and a skipped civil day were tested.
 - Event capacity, sorting, equal-time groups, automatic advancement, reached/empty/completed states, clock changes, restart, and resume discontinuities were tested with injected times.
 - System-language selection, manual override, translation completeness, conventional lunar labels, configuration persistence, drafts/Cancel, corrupt-data preservation, explicit repair, and save failures were tested.
@@ -48,4 +48,4 @@ Settings use a scrollable body and a fixed bottom action bar. Initial dimensions
 
 Countdown unit labels are larger, brighter, and separated from digits by an explicit gap. Compact rows reserve enough height to avoid overlap. The language-specific README screenshots are actual deterministic renders of this implementation. `README.md` is English by default, links to `README.zh-CN.md`, and both files show their respective screenshot near the top. Both README files and their screenshots are included in bundle resources.
 
-Local regression verification for this follow-up: 66 Swift tests and three Python tests passed. Packaged ARM and Intel close/lifecycle acceptance, architecture/plist/signature checks, and screenshot rendering passed. README navigation/image/document links were checked against the repository files.
+Local regression verification for this follow-up: 63 Swift tests and three Python tests passed. Packaged ARM and Intel close/lifecycle acceptance, architecture/plist/signature checks, and screenshot rendering passed. README navigation/image/document links were checked against the repository files.

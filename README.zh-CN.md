@@ -16,7 +16,7 @@
 - 支持目标时区、夏令时缺失或重复时间、未设置和全部完成状态，配置保存在本机。
 - 默认检测系统首选语言：中文显示中文，其他语言一律显示英文。也可手动选择“跟随系统”“English”或“中文”。首版中文界面统一使用简体中文。
 - 适配小尺寸预览、竖屏、Retina 及独立显示器视图。
-- 使用香港天文台历表离线换算农历，并以 day-memory 的测试案例进行对照。
+- 使用香港天文台历表离线换算农历。
 
 ## 下载与安装
 
@@ -45,7 +45,7 @@ GitHub Actions 会为每个 PR 测试两个架构。合并或推送到 `main` �
 ## 文档
 
 - [设计方案](doc/design-proposal.md)
-- [历法数据与参考项目验证](doc/calendar-data.md)
+- [历法数据与验证](doc/calendar-data.md)
 - [构建与发布流程](doc/build-and-release.md)
 - [本地验收报告](doc/acceptance-report.md)
 

@@ -193,7 +193,7 @@ Persist `isLeapMonth` independently; month number or list position alone cannot 
 
 ### 5.3 Conversion Strategy
 
-Use the bundled Hong Kong Observatory civil-date table behind `CalendarConversionService`. Initial full-range tests exposed invalid day-zero results in Foundation's Chinese calendar on distant future boundaries, so the implementation follows the offline-table fallback anticipated by the original proposal. See [calendar-data.md](calendar-data.md) for sources, comparison with day-memory, and validation.
+Use the bundled Hong Kong Observatory civil-date table behind `CalendarConversionService`. Initial full-range tests exposed invalid day-zero results in Foundation's Chinese calendar on distant future boundaries, so the implementation follows the offline-table fallback anticipated by the original proposal. See [calendar-data.md](calendar-data.md) for sources and validation.
 
 1. Identify the selected lunar year, regular/leap month, and legal day using the table.
 2. Add the day offset to that month's Gregorian civil-date boundary using a UTC Gregorian calendar. This calculation is independent of system and event time zones.
@@ -201,7 +201,7 @@ Use the bundled Hong Kong Observatory civil-date table behind `CalendarConversio
 4. Enumerate possible UTC offsets around that civil date and verify each candidate against the entered components. Reject missing times; require selection when two instants match.
 5. Verify conversion round trips through the same civil-date table.
 
-All supported lunar dates are tested, with separate authoritative and day-memory fixtures. Runtime conversion, normal builds, and tests are offline. The lunar year range is 1901–2100, including the last month of 2100 that extends into Gregorian January 2101. Gregorian input supports 1901–9999.
+All supported lunar dates are tested, with separate Hong Kong Observatory conversion cases. Runtime conversion, normal builds, and tests are offline. The lunar year range is 1901–2100, including the last month of 2100 that extends into Gregorian January 2101. Gregorian input supports 1901–9999.
 
 ### 5.4 Time Zones and DST
 

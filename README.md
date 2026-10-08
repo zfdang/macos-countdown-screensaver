@@ -16,7 +16,7 @@ A native macOS screen saver with a minimal black-background design, displaying c
 - Support explicit event time zones, DST gaps/repeated times, empty and all-completed states, and persistent settings.
 - Default to Chinese when the primary system language is Chinese, and English for every other language. Manually select System, English, or 中文. All Chinese variants use Simplified Chinese in this version.
 - Adapt to small previews, portrait screens, Retina displays, and independent display views.
-- Convert lunar dates offline using Hong Kong Observatory calendar data, with reference fixtures from day-memory.
+- Convert lunar dates offline using Hong Kong Observatory calendar data.
 
 ## Download and Install
 
@@ -45,7 +45,7 @@ GitHub Actions tests both architectures for each PR. After a merge/push to `main
 ## Documentation
 
 - [Design proposal](doc/design-proposal.md)
-- [Calendar data and reference validation](doc/calendar-data.md)
+- [Calendar data and validation](doc/calendar-data.md)
 - [Build and release workflow](doc/build-and-release.md)
 - [Local acceptance report](doc/acceptance-report.md)
 
