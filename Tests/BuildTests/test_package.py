@@ -22,8 +22,11 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(icon[:4], b'icns')
             self.assertEqual(int.from_bytes(icon[4:8], 'big'), len(icon))
             (root / 'Assets/Countdown.icns').write_bytes(icon)
-            for name in ['README.md', 'LICENSE']:
+            for name in ['README.md', 'README.zh-CN.md', 'LICENSE']:
                 (root / name).write_text(name)
+            (root / 'Assets/Screenshots').mkdir()
+            for language in ['en', 'zh']:
+                (root / f'Assets/Screenshots/countdown-{language}.png').write_bytes(b'PNG fixture')
             for bundle in ['Countdown.saver', 'Countdown Preview.app']:
                 (root / bundle / 'Contents').mkdir(parents=True)
             subprocess.run([sys.executable, str(REPOSITORY / 'scripts/package-info.py'),
@@ -37,3 +40,6 @@ class PackageTests(unittest.TestCase):
                     self.assertEqual(info['CFBundleVersion'], '5')
                     self.assertEqual(info['CountdownGitCommit'], metadata['commit'])
                     self.assertEqual((contents / 'Resources' / info['CFBundleIconFile']).read_bytes(), icon)
+                    self.assertTrue((contents / 'Resources/README.zh-CN.md').exists())
+                    for language in ['en', 'zh']:
+                        self.assertEqual((contents / f'Resources/Assets/Screenshots/countdown-{language}.png').read_bytes(), b'PNG fixture')

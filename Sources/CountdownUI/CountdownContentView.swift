@@ -110,7 +110,10 @@ public enum SystemLanguages {
       bounds.width < 240
       ? [.days, .hoursShort, .minutesShort, .secondsShort] : [.days, .hours, .minutes, .seconds]
     let columnCount = layout.compact ? 2 : 4
-    let rowHeight = area.height * (layout.compact ? 0.24 : 0.34)
+    let rowHeight = area.height * (layout.compact ? 0.26 : 0.34)
+    let row = DigitRowLayout(
+      rowHeight: rowHeight, screenWidth: bounds.width,
+      screenHeight: bounds.height, compact: layout.compact)
     for index in 0..<4 {
       let width = area.width / CGFloat(columnCount)
       let x = area.minX + CGFloat(index % columnCount) * width
@@ -118,16 +121,16 @@ public enum SystemLanguages {
       let font = NSFont.monospacedDigitSystemFont(ofSize: layout.digitSize, weight: .thin)
       let stringWidth = (digits[index] as NSString).size(withAttributes: [.font: font]).width
       let fittedSize = min(
-        min(layout.digitSize, rowHeight * 0.76 / 1.2),
+        min(layout.digitSize, row.digitHeight / 1.2),
         layout.digitSize * (width * 0.95) / max(1, stringWidth))
       drawText(
-        digits[index], rect: NSRect(x: x, y: y, width: width, height: rowHeight * 0.76),
+        digits[index], rect: NSRect(x: x, y: y, width: width, height: row.digitHeight),
         size: fittedSize, numeric: true)
       drawText(
         l.text(units[index]),
         rect: NSRect(
-          x: x, y: y + rowHeight * 0.76, width: width,
-          height: max(rowHeight * 0.24, smallSize * 1.5)), size: smallSize, alpha: 0.5)
+          x: x, y: y + row.unitOffset, width: width,
+          height: row.unitHeight), size: row.unitSize, alpha: 0.65, weight: .regular)
     }
     let footer = FooterLayout(
       height: bounds.height, compact: layout.compact,
@@ -158,7 +161,8 @@ public enum SystemLanguages {
     }
   }
   private func drawText(
-    _ text: String, rect: NSRect, size: CGFloat, alpha: CGFloat = 1, numeric: Bool = false
+    _ text: String, rect: NSRect, size: CGFloat, alpha: CGFloat = 1, numeric: Bool = false,
+    weight: NSFont.Weight = .light
   ) {
     let paragraph = NSMutableParagraphStyle()
     paragraph.alignment = .center
@@ -166,7 +170,7 @@ public enum SystemLanguages {
     let font =
       numeric
       ? NSFont.monospacedDigitSystemFont(ofSize: size, weight: .thin)
-      : NSFont.systemFont(ofSize: size, weight: .light)
+      : NSFont.systemFont(ofSize: size, weight: weight)
     (text as NSString).draw(
       in: rect,
       withAttributes: [

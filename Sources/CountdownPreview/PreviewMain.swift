@@ -6,55 +6,6 @@ import ScreenSaver
   import CountdownUI
 #endif
 
-@MainActor final class PreviewDelegate: NSObject, NSApplicationDelegate {
-  var window: NSWindow!
-  var saver: CountdownScreenSaverView!
-  var timer: Timer?
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 1000, height: 650),
-      styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-    window.title = "Countdown Preview"
-    saver = CountdownScreenSaverView(
-      frame: NSRect(x: 0, y: 0, width: 1000, height: 610), isPreview: true)!
-    saver.autoresizingMask = [.width, .height]
-    let root = NSView()
-    window.contentView = root
-    root.addSubview(saver)
-    let options = NSButton(
-      title: Localization(
-        preference: saver.content.configuration.languagePreference,
-        preferredLanguages: SystemLanguages.preferred
-      ).text(.options), target: self, action: #selector(showOptions))
-    options.frame = NSRect(x: 20, y: 615, width: 130, height: 28)
-    options.autoresizingMask = [.minYMargin]
-    options.setAccessibilityIdentifier("options")
-    root.addSubview(options)
-    window.center()
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate(ignoringOtherApps: true)
-    saver.startAnimation()
-    timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {
-      [weak self, weak options] _ in
-      MainActor.assumeIsolated {
-        guard let self else { return }
-        self.saver.animateOneFrame()
-        let l = Localization(
-          preference: self.saver.content.configuration.languagePreference,
-          preferredLanguages: SystemLanguages.preferred)
-        self.window.title = l.text(.preview)
-        options?.title = l.text(.options)
-      }
-    }
-  }
-  @objc func showOptions() { if let sheet = saver.configureSheet { window.beginSheet(sheet) } }
-  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-  func applicationWillTerminate(_ notification: Notification) {
-    timer?.invalidate()
-    saver?.stopAnimation()
-  }
-}
-
 @MainActor func runAcceptance() throws {
   let arguments = CommandLine.arguments
   let directory = arguments.firstIndex(of: "--output").map { arguments[$0 + 1] } ?? ".acceptance"
@@ -82,6 +33,7 @@ import ScreenSaver
     ("settings-preview", .zhHans, NSSize(width: 500, height: 165)),
   ] {
     configuration.languagePreference = preference
+    configuration.events[0].title = preference == .zhHans ? "项目发布" : "Project launch"
     view.configuration = configuration
     view.setFrameSize(size)
     view.update(now: now, uptime: 0)
@@ -111,24 +63,64 @@ import ScreenSaver
     content.cacheDisplay(in: content.bounds, to: bitmap)
     try bitmap.representation(using: .png, properties: [:])!.write(
       to: URL(fileURLWithPath: directory + "/" + name + ".png"))
+    window.setContentSize(NSSize(width: 520, height: 420))
+    window.layoutIfNeeded()
+    content.layoutSubtreeIfNeeded()
+    window.display()
+    let small = content.bitmapImageRepForCachingDisplay(in: content.bounds)!
+    content.cacheDisplay(in: content.bounds, to: small)
+    try small.representation(using: .png, properties: [:])!.write(
+      to: URL(fileURLWithPath: directory + "/" + name + "-small.png"))
     controller.cancelPressed()
   }
   print("PASS: rendered English, Chinese, small and portrait countdown views")
+}
+
+// Keep the run loop alive after closure to exercise the old timer's crash window.
+@MainActor func runCloseAcceptance(_ app: NSApplication) {
+  let suite = "com.zfdang.CountdownCloseAcceptance." + UUID().uuidString
+  let defaults = UserDefaults(suiteName: suite)!
+  let delegate = PreviewApplicationDelegate(
+    store: ConfigurationStore(backend: DefaultsBackend(defaults: defaults)),
+    terminateAfterLastWindowClosed: false)
+  app.delegate = delegate
+  Timer.scheduledTimer(withTimeInterval: 1.25, repeats: false) { _ in
+    MainActor.assumeIsolated {
+      delegate.window.title = "Closed preview"
+      delegate.window.performClose(nil)
+    }
+  }
+  Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { _ in
+    MainActor.assumeIsolated {
+      precondition(!delegate.window.isVisible)
+      precondition(
+        delegate.window.title == "Closed preview", "Timer must stop updating a closed window")
+      UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+      print(
+        "PASS: preview closed; event loop stayed alive for two timer intervals without crash or updates"
+      )
+      fflush(stdout)
+      app.terminate(nil)
+    }
+  }
+  withExtendedLifetime(delegate) { app.run() }
 }
 
 @main enum PreviewMain {
   @MainActor static func main() {
     let app = NSApplication.shared
     app.setActivationPolicy(.regular)
-    if CommandLine.arguments.contains("--acceptance") {
+    if CommandLine.arguments.contains("--acceptance-close") {
+      runCloseAcceptance(app)
+    } else if CommandLine.arguments.contains("--acceptance") {
       do { try runAcceptance() } catch {
         fputs("Acceptance failed: \(error)\n", stderr)
         exit(1)
       }
     } else {
-      let delegate = PreviewDelegate()
+      let delegate = PreviewApplicationDelegate()
       app.delegate = delegate
-      app.run()
+      withExtendedLifetime(delegate) { app.run() }
     }
   }
 }

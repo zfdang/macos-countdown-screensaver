@@ -3,6 +3,18 @@ import XCTest
 @testable import CountdownCore
 
 final class EngineTests: XCTestCase {
+  func testUnitLabelsHaveGapAndFitCompactRows() {
+    let wide = DigitRowLayout(rowHeight: 185, screenWidth: 1000, screenHeight: 650, compact: false)
+    XCTAssertGreaterThan(wide.unitSize, 22)
+    XCTAssertGreaterThan(wide.unitOffset - wide.digitHeight, 12)
+    for (width, height) in [(320.0, 240.0), (450, 800), (590, 400)] {
+      let rowHeight = height * 0.84 * 0.26
+      let row = DigitRowLayout(
+        rowHeight: rowHeight, screenWidth: width, screenHeight: height, compact: true)
+      XCTAssertGreaterThan(row.unitOffset, row.digitHeight)
+      XCTAssertLessThanOrEqual(row.unitOffset + row.unitHeight, rowHeight)
+    }
+  }
   func testFooterCollapsesHiddenDateWithoutLeavingEmptyRow() {
     for compact in [false, true] {
       let withDate = FooterLayout(height: 650, compact: compact, showDate: true, showNext: true)

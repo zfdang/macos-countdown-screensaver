@@ -83,12 +83,15 @@ import ScreenSaver
   }
   public override var hasConfigureSheet: Bool { true }
   public override var configureSheet: NSWindow? {
-    controller = ConfigurationWindowController(store: store)
-    controller?.onSave = { [weak self] _ in
+    if let controller { return controller.window }
+    let settings = ConfigurationWindowController(store: store)
+    controller = settings
+    settings.onFinish = { [weak self] in self?.controller = nil }
+    settings.onSave = { [weak self] _ in
       self?.reloadConfiguration()
       DistributedNotificationCenter.default().postNotificationName(
         Self.configurationChanged, object: nil, userInfo: nil, deliverImmediately: true)
     }
-    return controller?.window
+    return settings.window
   }
 }
